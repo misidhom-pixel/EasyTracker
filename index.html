@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EasyTracker — سجل تتبع الأجهزة</title>
+
+    <!-- PWA: installable app metadata -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0C1A28">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EasyTracker">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        html{
+            --bg-base:#0C1A28;
+            --bg-surface-solid:#122335;
+            --bg-surface-2:#1A2F45;
+            --line:#28425C;
+            --line-soft:#1E3550;
+            --brass:#D9A44D;
+            --brass-dim:#B98A3B;
+            --blue:#5FA8DE;
+            --ink-green:#3FA85A;
+            --ink-green-text:#6AD087;
+            --ink-red:#D2564A;
+            --ink-red-text:#EF7A6E;
+            --ink-amber:#D9A44D;
+            --ink-amber-text:#F0C179;
+            --text:#E9F0F6;
+            --text-dim:#8AA0B4;
+            --text-faint:#5E7690;
+            --grid-line: rgba(95,168,222,0.055);
+        }
+        html.light-mode{
+            --bg-base:#EDF2F7;
+            --bg-surface-solid:#FFFFFF;
+            --bg-surface-2:#F3F7FA;
+            --line:#CBD8E3;
+            --line-soft:#DCE6EF;
+            --brass:#B9822E;
+            --brass-dim:#9C6E27;
+            --blue:#2E6DA4;
+            --ink-green:#2E8C48;
+            --ink-green-text:#217A3B;
+            --ink-red:#C0453B;
+            --ink-red-text:#AC3A31;
+            --ink-amber:#B9822E;
+            --ink-amber-text:#96691F;
+            --text:#152535;
+            --text-dim:#48607A;
+            --text-faint:#7791A8;
+            --grid-line: rgba(46,109,164,0.07);
+        }
+        * { font-family: 'Cairo', system-ui, -apple-system, sans-serif; }
+        .font-display { font-family: 'Space Grotesk', 'Cairo', sans-serif !important; }
+        .font-mono { font-family: 'JetBrains Mono', monospace !important; }
+
+        body{
+            background-color: var(--bg-base);
+            background-image:
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 28px 28px;
+            color: var(--text);
+            transition: background-color .2s ease, color .2s ease;
+        }
+
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 9999px; }
+
+        @media (prefers-reduced-motion: reduce){
+            *{ transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+        }
+
+        /* ---- Title block (engineering drawing header) ---- */
+        .titleblock{
+            position: relative;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--bg-surface-solid) 92%, black) 0%, var(--bg-base) 100%);
+            border: 1px solid var(--line);
+        }
+        .tick{ position:absolute; width:16px; height:16px; pointer-events:none; }
+        .tick::before, .tick::after{ content:''; position:absolute; background: var(--brass-dim); }
+        .tick-tl{ top:-1px; left:-1px; } .tick-tl::before{ width:16px; height:2px; top:0; left:0; } .tick-tl::after{ width:2px; height:16px; top:0; left:0; }
+        .tick-tr{ top:-1px; right:-1px; } .tick-tr::before{ width:16px; height:2px; top:0; right:0; } .tick-tr::after{ width:2px; height:16px; top:0; right:0; }
+        .tick-bl{ bottom:-1px; left:-1px; } .tick-bl::before{ width:16px; height:2px; bottom:0; left:0; } .tick-bl::after{ width:2px; height:16px; bottom:0; left:0; }
+        .tick-br{ bottom:-1px; right:-1px; } .tick-br::before{ width:16px; height:2px; bottom:0; right:0; } .tick-br::after{ width:2px; height:16px; bottom:0; right:0; }
+
+        .metastrip{ display:flex; flex-wrap:wrap; border-top:1px solid var(--line); }
+        .metastrip > div{ padding: 8px 16px; border-left: 1px solid var(--line); font-family:'JetBrains Mono',monospace; font-size: 10.5px; letter-spacing: 0.06em; color: var(--text-faint); }
+        .metastrip > div span{ color: var(--text-dim); font-weight:700; }
+        [dir="rtl"] .metastrip > div{ border-left:none; border-right:1px solid var(--line); }
+
+        /* ---- Stamp badges (inspection-stamp motif) ---- */
+        .stamp{ display:inline-flex; align-items:center; gap:5px; padding: 3px 10px; border: 1.5px solid currentColor; border-radius: 4px; font-family:'JetBrains Mono',monospace; font-weight:700; font-size: 10.5px; letter-spacing: 0.03em; white-space: nowrap; background: rgba(120,120,120,0.08); }
+        .stamp-active{ color: var(--ink-green-text); }
+        .stamp-warn{ color: var(--ink-amber-text); }
+        .stamp-expired{ color: var(--ink-red-text); }
+        .stamp-pending{ color: var(--text-dim); }
+        .stamp-locked{ color: var(--text-dim); }
+        .stamp-edit{ color: var(--ink-amber-text); }
+        .stamp-new{ color: var(--ink-green-text); }
+
+        /* ---- Surfaces ---- */
+        .panel{ background: var(--bg-surface-solid); border: 1px solid var(--line); }
+        .field{ background: var(--bg-surface-2); border: 1px solid var(--line); color: var(--text); }
+        .field::placeholder{ color: var(--text-faint); }
+        .field:focus{ outline:none; border-color: var(--brass); box-shadow: 0 0 0 3px rgba(217,164,77,0.18); }
+
+        .btn{ transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease; cursor:pointer; }
+        .btn:active{ transform: translateY(1px); }
+        .btn-brass{ background: var(--brass); color:#1A1206; border:1px solid var(--brass); font-weight:700; }
+        .btn-brass:hover{ background: var(--brass-dim); }
+        .btn-outline{ background: transparent; color: var(--text-dim); border:1px solid var(--line); }
+        .btn-outline:hover{ border-color: var(--blue); color: var(--blue); }
+        .btn-danger-outline{ background: transparent; color: var(--ink-red-text); border:1px solid rgba(210,86,74,0.4); }
+        .btn-danger-outline:hover{ background: rgba(210,86,74,0.12); }
+        .btn-ghost{ background: var(--bg-surface-2); color: var(--text-dim); border:1px solid var(--line); }
+        .btn-ghost:hover{ color: var(--text); border-color: var(--blue); }
+        .btn-icon{ background: var(--bg-surface-2); color: var(--text-dim); border:1px solid var(--line); width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; }
+        .btn-icon:hover{ color: var(--brass); border-color: var(--brass); }
+
+        .link-bracket{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:11.5px; color: var(--blue); letter-spacing:0.02em; cursor:pointer; background:transparent; border:none; }
+        .link-bracket:hover{ color: var(--brass); text-decoration: underline; }
+
+        /* ---- Table ---- */
+        table.schedule thead th{ background: var(--bg-surface-2); color: var(--text-dim); font-family:'JetBrains Mono',monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--brass-dim); padding: 10px 14px; }
+        table.schedule tbody tr{ border-bottom: 1px solid var(--line-soft); }
+        table.schedule tbody tr:hover{ background: rgba(95,168,222,0.06); }
+        table.schedule tbody td{ padding: 11px 14px; }
+
+        /* ---- Gauge / quota bar ---- */
+        .gauge-track{ background: var(--bg-surface-2); border: 1px solid var(--line); background-image: repeating-linear-gradient(90deg, transparent 0, transparent 9.9%, rgba(120,120,120,0.12) 9.9%, rgba(120,120,120,0.12) 10%); }
+
+        /* ---- Modal backdrop ---- */
+        .backdrop{ background: rgba(6,12,20,0.78); backdrop-filter: blur(3px); }
+        html.light-mode .backdrop{ background: rgba(20,30,42,0.45); }
+
+        .audit-row{ padding:6px 10px; border-bottom:1px solid var(--line-soft); font-size:11px; }
+        .audit-row:last-child{ border-bottom:none; }
+
+        /* ================= App shell / navigation ================= */
+        #appTopNav{
+            position: sticky; top:0; z-index:40;
+            display:flex; align-items:center; justify-content:space-between;
+            padding:10px 16px; margin-bottom:14px;
+            background: var(--bg-surface-solid); border:1px solid var(--line); border-radius:10px;
+        }
+        #appTopNav .nav-title{ font-family:'Space Grotesk','Cairo',sans-serif; font-weight:700; font-size:14px; color:var(--text-dim); display:flex; align-items:center; gap:8px; }
+        #homeBtn{ display:flex; align-items:center; gap:6px; }
+        .app-view{ display:none; }
+        .app-view.active{ display:block; }
+
+        /* ================= Home / launcher screen ================= */
+        #homeView .launcher-wrap{ max-width: 900px; margin: 4vh auto; padding: 0 12px; }
+        #homeView .launcher-head{ text-align:center; margin-bottom: 34px; }
+        #homeView .launcher-head h1{ font-family:'Space Grotesk','Cairo',sans-serif; font-size: 26px; font-weight:700; color:var(--text); margin:0 0 8px; }
+        #homeView .launcher-head p{ color: var(--text-faint); font-size: 13px; font-family:'JetBrains Mono',monospace; letter-spacing:.03em; }
+        #homeView .launcher-grid{ display:grid; grid-template-columns: 1fr; gap:18px; }
+        @media (min-width: 640px){ #homeView .launcher-grid{ grid-template-columns: 1fr 1fr; } }
+        .launcher-card{
+            position:relative; text-align:right; cursor:pointer;
+            background: var(--bg-surface-solid); border:1px solid var(--line); border-radius: 14px;
+            padding: 26px 22px; transition: border-color .15s ease, transform .12s ease, box-shadow .15s ease;
+        }
+        .launcher-card:hover{ border-color: var(--brass); transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.25); }
+        .launcher-card .lc-icon{ width:52px; height:52px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:16px; background:var(--bg-surface-2); border:1px solid var(--brass-dim); }
+        .launcher-card .lc-icon i{ width:26px; height:26px; color:var(--brass); }
+        .launcher-card h2{ font-family:'Space Grotesk','Cairo',sans-serif; font-size:17px; font-weight:700; margin:0 0 6px; color:var(--text); }
+        .launcher-card p{ font-size:12.5px; color:var(--text-faint); line-height:1.7; margin:0; }
+        .launcher-card .lc-arrow{ position:absolute; top:22px; left:20px; color:var(--text-faint); }
+        .launcher-card:hover .lc-arrow{ color:var(--brass); }
+
+        /* ================= Generator view (scoped) ================= */
+        .genroot{ direction: ltr; font-family:'Cairo', sans-serif; padding: 10px 0 40px; }
+        .genroot .card{
+            background: var(--bg-surface-solid); border:1px solid var(--line); border-radius: 16px;
+            padding: 30px; width:100%; max-width:520px; margin: 0 auto;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+        }
+        .genroot h1{ color: var(--text); font-size: 20px; text-align:center; margin:0 0 22px; font-family:'Space Grotesk','Cairo',sans-serif; }
+        .genroot label{ display:block; font-weight:700; font-size:13px; color: var(--text-dim); margin-bottom:6px; }
+        .genroot input{
+            width:100%; padding: 11px 13px; border: 1.5px solid var(--line); border-radius:10px;
+            font-size:15px; font-family:'JetBrains Mono',monospace; margin-bottom:14px;
+            text-align:center; direction:ltr; background: var(--bg-surface-2); color: var(--text);
+        }
+        .genroot input::placeholder{ color: var(--text-faint); }
+        .genroot input:focus{ outline:none; border-color: var(--brass); box-shadow: 0 0 0 3px rgba(217,164,77,0.18); }
+        .genroot button.gen-btn{
+            width:100%; background: var(--brass); color:#1A1206; border:none;
+            padding:13px; border-radius:10px; font-size:15.5px; font-weight:800;
+            cursor:pointer; font-family:'Cairo', sans-serif; transition: background-color .15s ease;
+        }
+        .genroot button.gen-btn:hover{ background: var(--brass-dim); }
+        .genroot button.gen-btn.alt{ background: #8e44ad; color:#fff; }
+        .genroot button.gen-btn.alt:hover{ background:#732f8f; }
+        .genroot .results{ margin-top:20px; display:none; }
+        .genroot .result-row{
+            display:flex; justify-content:space-between; align-items:center;
+            background: var(--bg-surface-2); border-radius:10px; padding:11px 15px; margin-bottom:9px;
+            border: 1px solid var(--line); flex-wrap:wrap; gap:6px;
+        }
+        .genroot .result-row .label{ font-weight:700; font-size:12px; color: var(--text-dim); }
+        .genroot .result-row .value{ font-weight:800; font-size:16px; direction:ltr; letter-spacing:.6px; font-family:'JetBrains Mono',monospace; }
+        .genroot .act .value{ color: var(--blue); }
+        .genroot .try .value{ color: var(--ink-green-text); }
+        .genroot .ren .value{ color: var(--ink-red-text); }
+        .genroot .rst .value{ color:#b07bd6; }
+        .genroot .copy-btn{
+            background:none; border:1px solid var(--line); color: var(--text-dim); border-radius:6px;
+            padding:4px 10px; font-size:11.5px; cursor:pointer; margin-inline-start:8px; font-family:'Cairo', sans-serif;
+        }
+        .genroot .copy-btn:hover{ border-color: var(--brass); color: var(--brass); }
+        .genroot .hint{ font-size:11.5px; color: var(--text-faint); margin-top:-9px; margin-bottom:14px; }
+        .genroot .note{ font-size:11.5px; color: var(--text-faint); text-align:center; margin-top:18px; }
+        .genroot hr{ margin:26px 0; border:none; border-top:1px solid var(--line); }
+        .send-to-tracker-box{
+            margin-top:18px; padding:16px; border-radius:12px; text-align:center;
+            background: rgba(63,168,90,0.08); border:1.5px dashed var(--ink-green);
+        }
+        .send-to-tracker-box p{ font-size:12px; color: var(--text-dim); margin:0 0 12px; line-height:1.7; }
+        .send-to-tracker-box button{
+            background: var(--ink-green); color:#0C1A08; border:none; padding:12px 18px; border-radius:10px;
+            font-weight:800; font-size:14px; cursor:pointer; font-family:'Cairo', sans-serif; display:inline-flex;
+            align-items:center; gap:8px;
+        }
+        .send-to-tracker-box button:hover{ filter:brightness(1.08); }
+    </style>
+</head>
+<body class="min-h-screen py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
+
+    <div class="max-w-6xl mx-auto" id="appShell">
+
+        <!-- Top nav (hidden on home screen) -->
+        <div id="appTopNav" style="display:none;">
+            <button id="homeBtn" class="btn btn-outline px-3 py-2 text-xs font-semibold rounded-md">
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i><span>الرئيسية</span>
+            </button>
+            <div class="nav-title"><i data-lucide="compass" class="w-4 h-4" style="color:var(--brass)"></i><span>EasyTracker</span></div>
+        </div>
+
+        <!-- ================= HOME VIEW ================= -->
+        <div id="homeView" class="app-view active">
+            <div class="launcher-wrap">
+                <div class="launcher-head">
+                    <h1>EasyTracker — لوحة التحكم</h1>
+                    <p>اختر القسم اللي عايز تدخله</p>
+                    <button id="installAppBtn" class="hidden" style="margin-top:16px; background:var(--brass); color:#1A1206; border:none; padding:9px 18px; border-radius:9px; font-weight:800; font-size:13px; cursor:pointer; font-family:'Cairo',sans-serif; display:inline-flex; align-items:center; gap:6px;">
+                        <i data-lucide="download" class="w-4 h-4"></i><span>تثبيت التطبيق على الجهاز</span>
+                    </button>
+                </div>
+                <div class="launcher-grid">
+                    <div class="launcher-card" id="goGeneratorCard">
+                        <i data-lucide="arrow-left" class="lc-arrow w-4 h-4"></i>
+                        <div class="lc-icon"><i data-lucide="key-round"></i></div>
+                        <h2>مولد أكواد التفعيل</h2>
+                        <p>ولّد أكواد التفعيل، التجربة، التجديد، وإعادة الضبط من رقم الجهاز — وابعتها للتراكر بضغطة واحدة.</p>
+                    </div>
+                    <div class="launcher-card" id="goTrackerCard">
+                        <i data-lucide="arrow-left" class="lc-arrow w-4 h-4"></i>
+                        <div class="lc-icon"><i data-lucide="laptop"></i></div>
+                        <h2>سجل تتبع الأجهزة</h2>
+                        <p>الشركات، الأجهزة، تواريخ الاشتراك، والمتابعة — كل بيانات العملاء في مكان واحد.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= GENERATOR VIEW ================= -->
+        <div id="generatorView" class="app-view genroot">
+            <div class="card">
+                <h1>🔑 مولد أكواد التفعيل وإعادة الضبط</h1>
+
+                <label>رقم الجهاز (Machine ID) الظاهر عند العميل</label>
+                <div style="display:flex; gap:8px; align-items:stretch; margin-bottom:14px;">
+                    <input type="text" id="machineId" placeholder="e.g. 3F9A1B7C2E4D5F60 or SRS-3F9A1B7C2E4D5F60" style="margin-bottom:0; flex:1;">
+                    <button type="button" id="openCameraScanBtn" title="مسح رقم الجهاز بالكاميرا" style="flex-shrink:0; width:48px; border-radius:10px; border:1.5px solid var(--line); background:var(--bg-surface-2); color:var(--brass); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <i data-lucide="camera" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <label>تاريخ أول تفعيل (لازم بس لكود التجديد REN-)</label>
+                <input type="date" id="actDate">
+                <div class="hint">اتركه فاضي لو محتاج بس أكواد التفعيل والتجربة وإعادة الضبط</div>
+
+                <button class="gen-btn" onclick="generateKeys()">توليد الأكواد</button>
+
+                <div class="results" id="results">
+                    <div class="result-row act">
+                        <span class="label">تفعيل كامل (365 يوم)</span>
+                        <span><span class="value" id="actKey">--</span><button class="copy-btn" onclick="copyVal('actKey')">نسخ</button></span>
+                    </div>
+                    <div class="result-row try">
+                        <span class="label">تجربة مجانية (7 أيام)</span>
+                        <span><span class="value" id="tryKey">--</span><button class="copy-btn" onclick="copyVal('tryKey')">نسخ</button></span>
+                    </div>
+                    <div class="result-row ren">
+                        <span class="label">تجديد (بعد انتهاء الـ 365 يوم)</span>
+                        <span><span class="value" id="renKey">--</span><button class="copy-btn" onclick="copyVal('renKey')">نسخ</button></span>
+                    </div>
+                    <div class="result-row" style="border-right:4px solid #999;">
+                        <span class="label">كود التحدي الوسيط (RST) - للمراجعة فقط</span>
+                        <span><span class="value" id="rstCode" style="color:var(--text-faint);">--</span></span>
+                    </div>
+                    <div class="result-row rst">
+                        <span class="label">إعادة ضبط كلمة المرور (Master Key)</span>
+                        <span><span class="value" id="resetKey">--</span><button class="copy-btn" onclick="copyVal('resetKey')">نسخ</button></span>
+                    </div>
+
+                    <div class="send-to-tracker-box">
+                        <p>حابب تحفظ الجهاز ده وبياناته في سجل التتبع؟ هيتفتحلك فورم جهاز جديد وكل الأكواد والتواريخ هتتملى تلقائي.</p>
+                        <button type="button" id="sendToTrackerBtn"><i data-lucide="send" class="w-4 h-4"></i>إرسال البيانات إلى التراكر</button>
+                    </div>
+                </div>
+
+                <div class="note">مولد الأكواد ده بيستخدم نفس معادلات التطبيق الأصلي بالظبط</div>
+
+                <hr>
+
+                <h1 style="font-size:16px;">🔓 حساب مفتاح إعادة الضبط مباشرة من كود RST</h1>
+                <div class="hint" style="margin-top:-6px;">استخدم الصندوق ده لما العميل يبعتلك كود RST-XXXXXX الظاهر على شاشته (مش رقم الجهاز)</div>
+
+                <label>كود RST الظاهر على شاشة العميل</label>
+                <input type="text" id="rstDirectInput" placeholder="e.g. RST-743882">
+                <button class="gen-btn alt" onclick="generateKeyFromRst()">احسب مفتاح إعادة الضبط</button>
+
+                <div class="result-row rst" style="margin-top:16px; display:none;" id="rstDirectResultRow">
+                    <span class="label">إعادة ضبط كلمة المرور (Master Key)</span>
+                    <span><span class="value" id="rstDirectResultKey">--</span><button class="copy-btn" onclick="copyVal('rstDirectResultKey')">نسخ</button></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Camera Scan Modal (Machine ID OCR) ================= -->
+        <div id="cameraScanModal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 backdrop">
+            <div class="panel rounded-lg shadow-2xl w-full max-w-lg overflow-hidden" dir="rtl">
+                <div class="p-4 sm:p-5 flex items-center justify-between border-b" style="background:var(--bg-surface-2); border-color:var(--line)">
+                    <h2 class="text-base font-bold flex items-center gap-2"><i data-lucide="camera" class="w-4 h-4" style="color:var(--brass)"></i> مسح رقم الجهاز بالكاميرا</h2>
+                    <button id="closeCameraScanBtn" class="p-1.5 rounded-md" style="color:var(--text-faint)"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+
+                <div class="p-4 sm:p-5 space-y-3 text-sm">
+                    <div id="cameraPreviewWrap" style="position:relative; background:#000; border-radius:10px; overflow:hidden; border:1px solid var(--line); aspect-ratio:4/3;">
+                        <video id="cameraVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+                        <canvas id="cameraCanvas" class="hidden"></canvas>
+                        <div id="cameraStatusOverlay" class="hidden" style="position:absolute; inset:0; background:rgba(6,12,20,0.72); display:flex; align-items:center; justify-content:center; color:var(--text); font-size:13px; font-weight:600; text-align:center; padding:16px;"></div>
+                    </div>
+
+                    <div id="cameraDeviceRow" class="hidden">
+                        <label class="block text-xs font-semibold mb-1" style="color:var(--text-dim)">اختر الكاميرا</label>
+                        <select id="cameraDeviceSelect" class="field w-full px-3 py-2 rounded-md text-xs"></select>
+                    </div>
+
+                    <p class="text-xs" style="color:var(--text-faint)">وجّه الكاميرا ناحية رقم الـ Machine ID الظاهر على شاشة الكمبيوتر، حاول إن النص يبقى واضح وقريب، وبعدين اضغط "التقاط وقراءة".</p>
+
+                    <button type="button" id="captureRecognizeBtn" class="btn btn-brass w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-md">
+                        <i data-lucide="scan-line" class="w-4 h-4"></i><span>التقاط وقراءة النص</span>
+                    </button>
+
+                    <div id="ocrResultBox" class="hidden space-y-2 pt-2 border-t" style="border-color:var(--line)">
+                        <label class="block text-xs font-semibold" style="color:var(--text-dim)">النص المقروء (راجعه وعدّله لو محتاج قبل ما تستخدمه)</label>
+                        <input type="text" id="ocrResultInput" class="field w-full px-3 py-2 rounded-md font-mono text-sm" dir="ltr" style="text-align:center;">
+                        <div class="flex items-center gap-2 pt-1">
+                            <button type="button" id="useOcrResultBtn" class="btn btn-brass flex-1 px-3 py-2 text-xs font-bold rounded-md">استخدام هذا النص</button>
+                            <button type="button" id="retryOcrBtn" class="btn btn-outline px-3 py-2 text-xs font-semibold rounded-md">إعادة المحاولة</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TRACKER VIEW ================= -->
+        <div id="trackerView" class="app-view">
+
+        <!-- Title Block Header -->
+        <header class="titleblock rounded-lg shadow-2xl mb-6 overflow-hidden">
+            <div class="tick tick-tl"></div><div class="tick tick-tr"></div><div class="tick tick-bl"></div><div class="tick tick-br"></div>
+
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-5 md:p-6">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-md bg-[--bg-surface-2] border flex items-center justify-center shrink-0" style="background:var(--bg-surface-2); border-color:var(--brass-dim)">
+                        <i data-lucide="compass" class="w-6 h-6" style="color:var(--brass)"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-display text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2.5 flex-wrap">
+                            <span>EasyTracker</span>
+                            <span class="font-normal text-base hidden sm:inline" style="color:var(--text-faint)">/</span>
+                            <span class="text-sm md:text-base font-semibold" style="color:var(--text-dim)">سجل تتبع الأجهزة والتراخيص</span>
+                        </h1>
+                        <p class="text-xs mt-1 font-mono" style="color:var(--text-faint)">نظام أمان ثنائي الوضع — عرض محمي وتعديل مقصود، لمنع أي تغيير بالخطأ</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                    <button id="themeToggleBtn" class="btn btn-icon shrink-0" title="تبديل الوضع الليلي/النهاري">
+                        <i data-lucide="moon" class="w-4 h-4" id="themeIcon"></i>
+                    </button>
+                    <button id="exportCsvBtn" class="btn btn-outline flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md">
+                        <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i><span>تصدير CSV</span>
+                    </button>
+                    <button id="exportBackupBtn" class="btn btn-outline flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i><span>نسخة احتياطية</span>
+                    </button>
+                    <button id="importBackupBtn" class="btn btn-outline flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i><span>استيراد نسخة</span>
+                    </button>
+                    <input type="file" id="importFileInput" class="hidden" accept=".json">
+                </div>
+            </div>
+
+            <!-- Stats as schedule cells -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 border-t" style="border-color:var(--line)">
+                <div class="p-4 border-b sm:border-b-0" style="border-color:var(--line)">
+                    <div class="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider mb-1.5" style="color:var(--text-faint)"><i data-lucide="building-2" class="w-3 h-3"></i>الشركات</div>
+                    <div id="statTotalCompanies" class="font-display text-2xl font-bold">0</div>
+                </div>
+                <div class="p-4 border-b sm:border-b-0 sm:border-r" style="border-color:var(--line)">
+                    <div class="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider mb-1.5" style="color:var(--text-faint)"><i data-lucide="laptop" class="w-3 h-3"></i>الأجهزة</div>
+                    <div id="statTotalDevices" class="font-display text-2xl font-bold">0</div>
+                </div>
+                <div class="p-4 sm:border-r" style="border-color:var(--line)">
+                    <div class="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider mb-1.5" style="color:var(--text-faint)"><i data-lucide="alert-triangle" class="w-3 h-3" style="color:var(--ink-amber-text)"></i>تنتهي قريباً</div>
+                    <div id="statExpiringSoon" class="font-display text-2xl font-bold" style="color:var(--ink-amber-text)">0</div>
+                </div>
+                <div class="p-4 sm:border-r" style="border-color:var(--line)">
+                    <div class="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider mb-1.5" style="color:var(--text-faint)"><i data-lucide="x-circle" class="w-3 h-3" style="color:var(--ink-red-text)"></i>منتهية</div>
+                    <div id="statExpired" class="font-display text-2xl font-bold" style="color:var(--ink-red-text)">0</div>
+                </div>
+            </div>
+
+            <!-- Drawing-style meta strip -->
+            <div class="metastrip">
+                <div>SYSTEM: <span>DEVICE REGISTRY</span></div>
+                <div>REV: <span>2.7</span></div>
+                <div>DRAWN BY: <span>MICHAEL</span></div>
+                <div class="hidden sm:block">STATUS: <span style="color:var(--ink-green-text)">LIVE</span></div>
+            </div>
+        </header>
+
+        <!-- Company Record -->
+        <section class="panel rounded-lg p-5 mb-6">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b" style="border-color:var(--line)">
+                <div class="w-full md:w-auto flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label for="companySelect" class="text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap min-w-[100px]" style="color:var(--text-dim)">
+                        <i data-lucide="building" class="w-3.5 h-3.5"></i> الشركة
+                    </label>
+                    <select id="companySelect" class="field w-full sm:max-w-md px-3.5 py-2.5 rounded-md font-semibold text-sm"></select>
+                </div>
+                <div class="flex items-center flex-wrap gap-2">
+                    <button id="newCompanyBtn" class="btn btn-brass inline-flex items-center gap-1 px-3 py-2 text-xs rounded-md"><i data-lucide="plus" class="w-3.5 h-3.5"></i> شركة جديدة</button>
+                    <button id="editCompanyBtn" class="btn btn-outline inline-flex items-center gap-1 px-3 py-2 text-xs rounded-md"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i> تعديل</button>
+                    <button id="deleteCompanyBtn" class="btn btn-danger-outline inline-flex items-center gap-1 px-3 py-2 text-xs rounded-md"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> حذف</button>
+                </div>
+            </div>
+
+            <!-- Company contact chips -->
+            <div id="companyContactChips" class="flex flex-wrap items-center gap-2 pt-3 text-xs font-mono" style="color:var(--text-dim)"></div>
+
+            <!-- Quota Gauge -->
+            <div class="pt-4">
+                <div class="flex items-center justify-between text-xs font-semibold mb-1.5 flex-wrap gap-2">
+                    <div class="flex items-center gap-2 font-mono" style="color:var(--text-dim)">
+                        <span>الحد المسموح:</span>
+                        <span id="quotaAllowedText" class="text-sm font-bold px-2 py-0.5 rounded" style="color:var(--text); background:var(--bg-surface-2); border:1px solid var(--line)">0</span>
+                        <span>· المفعلة:</span>
+                        <span id="quotaActiveBadge" class="stamp stamp-active">0</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="quotaPercentText" class="font-mono" style="color:var(--text-faint)">0%</span>
+                        <button id="editQuotaBtn" class="link-bracket">[ تعديل الحد ]</button>
+                    </div>
+                </div>
+                <div class="w-full gauge-track rounded-full h-2.5 overflow-hidden">
+                    <div id="quotaProgressBar" class="h-full rounded-full transition-all" style="width: 0%; background:var(--ink-green)"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Devices Schedule -->
+        <section class="panel rounded-lg p-5 md:p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+                <h2 class="font-display text-lg font-bold flex items-center gap-2.5">
+                    <span>الأجهزة المفعلة</span>
+                    <span id="devicesCountBadge" class="stamp stamp-pending">0</span>
+                </h2>
+                <button id="newDeviceBtn" class="btn btn-brass inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold rounded-md">
+                    <i data-lucide="plus" class="w-4 h-4"></i><span>إضافة جهاز جديد</span>
+                </button>
+            </div>
+
+            <div class="mb-4 relative">
+                <i data-lucide="search" class="w-4 h-4 absolute top-1/2 -translate-y-1/2 right-3.5" style="color:var(--text-faint)"></i>
+                <input type="text" id="tableSearchInput" placeholder="بحث برقم الجهاز (Machine ID)، المستخدم، أو الملاحظات..." class="field w-full pr-10 pl-4 py-2.5 rounded-md text-sm">
+            </div>
+
+            <div class="overflow-x-auto rounded-md border" style="border-color:var(--line)">
+                <table class="schedule w-full text-right border-collapse min-w-[760px]">
+                    <thead>
+                        <tr>
+                            <th>Machine ID</th>
+                            <th>المستخدم</th>
+                            <th>الحساب السحابي</th>
+                            <th>الحالة</th>
+                            <th>الانتهاء والتجديدات</th>
+                            <th>الدفع</th>
+                            <th class="text-center">التفاصيل</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTableBody" class="text-sm"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="text-center py-6 font-mono text-[10px] tracking-wider" style="color:var(--text-faint)">
+            EASYTRACKER SUBMITTALS REPORTS SYSTEM — DEVICE REGISTRY SHEET
+        </footer>
+
+    <!-- Company Modal -->
+    <div id="companyModal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 backdrop">
+        <div class="panel rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="p-4 sm:p-5 flex items-center justify-between border-b" style="background:var(--bg-surface-2); border-color:var(--line)">
+                <h2 id="companyModalTitle" class="text-base font-bold flex items-center gap-2"><i data-lucide="building-2" class="w-4 h-4" style="color:var(--brass)"></i> شركة جديدة</h2>
+                <button id="closeCompanyModalBtn" class="p-1.5 rounded-md" style="color:var(--text-faint)"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="companyForm" class="p-5 space-y-4 text-sm">
+                <div>
+                    <label class="block font-bold mb-1">اسم الشركة <span style="color:var(--ink-red-text)">*</span></label>
+                    <input type="text" id="companyFormName" required class="field w-full px-3 py-2 rounded-md font-semibold">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">الحد الأقصى للأجهزة <span style="color:var(--ink-red-text)">*</span></label>
+                    <input type="number" min="1" id="companyFormLimit" required class="field w-full px-3 py-2 rounded-md font-mono">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold mb-1">رقم الموبايل / واتساب</label>
+                        <input type="text" id="companyFormPhone" placeholder="01xxxxxxxxx" class="field w-full px-3 py-2 rounded-md font-mono text-xs" dir="ltr">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">إيميل المسؤول</label>
+                        <input type="text" id="companyFormEmail" placeholder="name@company.com" class="field w-full px-3 py-2 rounded-md font-mono text-xs" dir="ltr">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between pt-3 border-t" style="border-color:var(--line)">
+                    <button type="button" id="cancelCompanyFormBtn" class="btn btn-ghost px-4 py-2 text-xs font-semibold rounded-md">إلغاء</button>
+                    <button type="submit" class="btn btn-brass px-5 py-2 text-xs font-bold rounded-md">حفظ الشركة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Device Modal -->
+    <div id="deviceModal" class="fixed inset-0 z-50 hidden items-center justify-center p-0 sm:p-4 backdrop">
+        <div class="panel rounded-none sm:rounded-lg shadow-2xl w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col overflow-hidden">
+
+            <!-- Modal Header (sticky) -->
+            <div class="p-4 sm:p-5 flex items-center justify-between border-b shrink-0" style="background:var(--bg-surface-2); border-color:var(--line)">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-md flex items-center justify-center border shrink-0" style="background:var(--bg-surface-solid); border-color:var(--brass-dim)">
+                        <i data-lucide="laptop" class="w-5 h-5" style="color:var(--brass)"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base sm:text-lg font-bold flex items-center gap-1.5">
+                                <span>بيانات الجهاز:</span>
+                                <span id="modalTitleMachineId" class="font-mono text-sm sm:text-base" style="color:var(--brass)">ENCX-...</span>
+                            </h2>
+                            <span id="modalModeBadge" class="stamp stamp-locked">[ عرض محمي ]</span>
+                        </div>
+                        <p id="modalCompanySubtitle" class="text-xs mt-0.5" style="color:var(--text-faint)"></p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="modalSwitchToEditBtn" class="btn btn-brass inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-md">
+                        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i><span>تعديل البيانات</span>
+                    </button>
+                    <button id="closeDeviceModalBtn" class="p-1.5 rounded-md" style="color:var(--text-faint)"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+
+            <!-- VIEW MODE -->
+            <div id="modalViewModeContent" class="p-5 sm:p-6 space-y-4 text-sm flex-1 overflow-y-auto">
+                <div class="p-3 rounded-md text-xs flex items-center gap-2" style="background:rgba(95,168,222,0.08); border:1px solid rgba(95,168,222,0.3); color:var(--blue)">
+                    <i data-lucide="shield-check" class="w-4 h-4 shrink-0"></i>
+                    <span>الواجهة في وضع العرض لحماية التواريخ من التعديل العرضي بالخطأ.</span>
+                </div>
+
+                <div class="p-4 rounded-md space-y-3 text-xs" style="background:var(--bg-surface-2); border:1px solid var(--line)">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                            <span class="font-mono uppercase tracking-wider" style="color:var(--text-faint)">Machine ID </span>
+                            <span id="viewMachineId" class="font-mono font-bold px-2 py-1 rounded" style="background:var(--bg-base); border:1px solid var(--line)"></span>
+                        </div>
+                        <div id="viewStatusBadge"></div>
+                    </div>
+                    <div class="pt-2 border-t" style="border-color:var(--line-soft)">
+                        <span class="font-mono uppercase tracking-wider block mb-0.5" style="color:var(--text-faint)">مفتاح الترخيص</span>
+                        <span id="viewLicenseKey" class="font-mono font-bold"></span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t" style="border-color:var(--line-soft)">
+                        <div><span class="font-mono uppercase tracking-wider block mb-0.5" style="color:var(--text-faint)">المستخدم</span> <span id="viewLoginUser" class="font-bold"></span></div>
+                        <div><span class="font-mono uppercase tracking-wider block mb-0.5" style="color:var(--text-faint)">الحساب السحابي</span> <span id="viewCloudUser" class="font-mono"></span></div>
+                    </div>
+                    <div class="pt-2 border-t" style="border-color:var(--line-soft)">
+                        <span class="font-mono uppercase tracking-wider block mb-0.5" style="color:var(--text-faint)">إصدار البرنامج المثبت</span>
+                        <span id="viewAppVersion" class="font-mono font-bold"></span>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-md space-y-3" style="background:var(--bg-surface-2); border:1px solid var(--line)">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <span class="text-[10px] font-mono uppercase tracking-wider" style="color:var(--text-faint)">تواريخ الترخيص والاشتراك</span>
+                        <div id="viewPaymentStatus"></div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                        <div class="p-2.5 rounded" style="background:var(--bg-base); border:1px solid var(--line-soft)">
+                            <span class="block mb-1" style="color:var(--text-faint)">أول تجربة</span>
+                            <span id="viewTrialDate" class="font-mono font-bold">—</span>
+                        </div>
+                        <div class="p-2.5 rounded" style="background:var(--bg-base); border:1px solid var(--line-soft)">
+                            <span class="block mb-1" style="color:var(--text-faint)">أول تفعيل</span>
+                            <span id="viewActivationDate" class="font-mono font-bold">—</span>
+                        </div>
+                        <div class="p-2.5 rounded" style="background:var(--bg-base); border:1px solid var(--line-soft)">
+                            <span class="block mb-1" style="color:var(--text-faint)">انتهاء الاشتراك</span>
+                            <span id="viewExpiryDate" class="font-mono font-bold" style="color:var(--blue)">—</span>
+                        </div>
+                    </div>
+                    <div class="pt-2 border-t" style="border-color:var(--line-soft)">
+                        <span class="text-xs font-bold block mb-1.5">تجديدات التفعيل:</span>
+                        <div id="viewRenewalsList" class="space-y-1 text-xs"></div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-md space-y-2 text-xs" style="background:var(--bg-surface-2); border:1px solid var(--line)">
+                    <span class="text-[10px] font-mono uppercase tracking-wider block" style="color:var(--text-faint)">متابعة العميل</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div><span class="block mb-0.5" style="color:var(--text-faint)">آخر تواصل</span><span id="viewLastContact" class="font-mono font-bold">—</span></div>
+                        <div><span class="block mb-0.5" style="color:var(--text-faint)">المتابعة القادمة</span><span id="viewNextFollowUp" class="font-mono font-bold" style="color:var(--ink-amber-text)">—</span></div>
+                    </div>
+                </div>
+
+                <div>
+                    <span class="text-xs font-bold block mb-1">سجل الملاحظات والأعطال:</span>
+                    <div id="viewFaults" class="p-3 rounded-md text-xs font-mono whitespace-pre-wrap max-h-32 overflow-y-auto" style="background:var(--bg-surface-2); border:1px solid var(--line); color:var(--text-dim)"></div>
+                </div>
+
+                <div>
+                    <span class="text-xs font-bold flex items-center gap-1.5 mb-1"><i data-lucide="history" class="w-3.5 h-3.5"></i> سجل التدقيق التلقائي</span>
+                    <div id="viewAuditLog" class="rounded-md max-h-40 overflow-y-auto" style="background:var(--bg-surface-2); border:1px solid var(--line)"></div>
+                </div>
+
+                <div class="flex items-center justify-between pt-4 border-t" style="border-color:var(--line)">
+                    <button id="viewDeleteBtn" class="btn btn-danger-outline px-3 py-1.5 text-xs font-semibold rounded-md">حذف الجهاز</button>
+                    <button id="viewCloseBtn" class="btn btn-ghost px-4 py-2 text-xs font-semibold rounded-md">إغلاق</button>
+                </div>
+            </div>
+
+            <!-- EDIT MODE -->
+            <form id="modalEditForm" class="hidden p-5 sm:p-6 space-y-4 text-sm flex-1 overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold mb-1">Machine ID <span style="color:var(--ink-red-text)">*</span></label>
+                        <input type="text" id="editMachineId" required placeholder="ENCX-F2E593C3-CD93-42" class="field w-full px-3 py-2 rounded-md font-mono uppercase font-semibold">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">مفتاح الترخيص</label>
+                        <input type="text" id="editLicenseKey" placeholder="ACT-XXXXX-XXXXX" class="field w-full px-3 py-2 rounded-md font-mono uppercase text-xs">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold mb-1">مستخدم تسجيل الدخول</label>
+                        <input type="text" id="editLoginUser" placeholder="Michael" class="field w-full px-3 py-2 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">المستخدم السحابي</label>
+                        <input type="text" id="editCloudUser" placeholder="name@example.com" class="field w-full px-3 py-2 rounded-md font-mono text-xs">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold mb-1">إصدار البرنامج المثبت</label>
+                    <input type="text" id="editAppVersion" placeholder="2.6.0" class="field w-full px-3 py-2 rounded-md font-mono text-xs">
+                </div>
+
+                <div class="p-4 rounded-md space-y-3" style="background:var(--bg-surface-2); border:1px solid var(--line)">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1" style="color:var(--text-dim)">أول تجربة</label>
+                            <input type="date" id="editTrialDate" class="field w-full px-2 py-1.5 rounded text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1" style="color:var(--text-dim)">أول تفعيل</label>
+                            <input type="date" id="editActivationDate" class="field w-full px-2 py-1.5 rounded text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1" style="color:var(--text-dim)">انتهاء الاشتراك</label>
+                            <input type="date" id="editExpiryDate" class="field w-full px-2 py-1.5 rounded text-xs font-bold">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1" style="color:var(--text-dim)">حالة دفع التفعيل</label>
+                        <select id="editPaymentStatus" class="field w-full px-2 py-1.5 rounded text-xs">
+                            <option value="paid">مدفوع</option>
+                            <option value="pending">معلق</option>
+                            <option value="unknown">غير محدد</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-3 border-t space-y-2" style="border-color:var(--line-soft)">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold">تجديدات التفعيل (Renewals)</span>
+                            <button type="button" id="btnAddRenewalItem" class="link-bracket">[ + إضافة تجديد ]</button>
+                        </div>
+                        <div id="editRenewalsContainer" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-md space-y-3" style="background:var(--bg-surface-2); border:1px solid var(--line)">
+                    <span class="text-[10px] font-mono uppercase tracking-wider block" style="color:var(--text-faint)">متابعة العميل</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1" style="color:var(--text-dim)">تاريخ آخر تواصل</label>
+                            <input type="date" id="editLastContact" class="field w-full px-2 py-1.5 rounded text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1" style="color:var(--text-dim)">موعد المتابعة القادمة</label>
+                            <input type="date" id="editNextFollowUp" class="field w-full px-2 py-1.5 rounded text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold mb-1">سجل الملاحظات والأعطال</label>
+                    <textarea id="editFaults" rows="3" placeholder="سجل الملاحظات أو أعمال الصيانة... أو أي حاجة غير متوقعة حصلت" class="field w-full p-3 rounded-md text-xs font-mono resize-y"></textarea>
+                </div>
+
+                <div class="flex items-center justify-between pt-4 border-t" style="border-color:var(--line)">
+                    <button type="button" id="cancelEditBtn" class="btn btn-ghost px-4 py-2 text-xs font-semibold rounded-md">إلغاء التعديل</button>
+                    <button type="submit" class="btn btn-brass px-5 py-2 text-xs font-bold rounded-md">حفظ التغييرات</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+    </div><!-- /#trackerView -->
+
+    </div><!-- /#appShell -->
+
+    <!-- Script Logic -->
+    <script>
+        function safeCreateIcons(){ try { if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons(); } catch(e) { console.warn('lucide unavailable', e); } }
+
+        // ================= View switching (home / generator / tracker) =================
+        let lastGeneratedData = null; // { machineId, licenseKey, trialDate, activationDate, expiryDate }
+
+        function showView(name){
+            document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+            document.getElementById(name + 'View').classList.add('active');
+            document.getElementById('appTopNav').style.display = (name === 'home') ? 'none' : 'flex';
+            if (typeof closeCameraScan === 'function') closeCameraScan();
+            window.scrollTo(0, 0);
+            safeCreateIcons();
+        }
+        document.getElementById('goGeneratorCard').addEventListener('click', () => showView('generator'));
+        document.getElementById('goTrackerCard').addEventListener('click', () => showView('tracker'));
+        document.getElementById('homeBtn').addEventListener('click', () => showView('home'));
+
+        // ================= Key Generator logic (from key-generator.html) =================
+        function hashToBigInt(id) {
+            const cleanHex = id.replace(/[^0-9a-fA-F]/g, '').slice(0, 16) || "0";
+            return BigInt("0x" + cleanHex);
+        }
+        function getCorrectKey(id) {
+            let secret = (hashToBigInt(id) * 7n + 12345n).toString();
+            return "ACT-" + secret.slice(-6);
+        }
+        function getTrialKey(id) {
+            let secret = (hashToBigInt(id) * 3n + 99999n).toString();
+            return "TRY-" + secret.slice(-6);
+        }
+        function getRenewalKey(id, activationDateStr) {
+            let dateNum = BigInt(activationDateStr.replace(/\D+/g, '') || "0");
+            let secret = (hashToBigInt(id) * 7n + dateNum + 54321n).toString();
+            return "REN-" + secret.slice(-6);
+        }
+        function getResetChallengeCode(id) {
+            let secret = (hashToBigInt(id) * 9n + 88888n).toString();
+            return "RST-" + secret.slice(-6);
+        }
+        function getAdminResetKeyFromCode(rstOrMachineCode) {
+            const numsOnly = String(rstOrMachineCode || "").replace(/\D+/g, '') || "0";
+            const cleanNum = BigInt(numsOnly.slice(-8) || "0");
+            let secret = (cleanNum * 13n + 55555n).toString();
+            return "KEY-" + secret.slice(-6);
+        }
+
+        function generateKeys() {
+            let rawInput = document.getElementById('machineId').value.trim();
+            let rawId = rawInput.replace(/^SRS-/i, '').replace(/^ECG-/i, '').replace(/^RST-/i, '');
+
+            if (!rawId || !/[0-9a-fA-F]/.test(rawId)) {
+                alert("من فضلك الصق رقم الجهاز كامل زي ما هو ظاهر عند العميل (16 خانة hex)");
+                return;
+            }
+
+            const actKey = getCorrectKey(rawId);
+            document.getElementById('actKey').innerText = actKey;
+            document.getElementById('tryKey').innerText = getTrialKey(rawId);
+
+            const rstCode = getResetChallengeCode(rawId);
+            document.getElementById('rstCode').innerText = rstCode;
+            document.getElementById('resetKey').innerText = getAdminResetKeyFromCode(rstCode);
+
+            const dateVal = document.getElementById('actDate').value;
+            document.getElementById('renKey').innerText = dateVal ? getRenewalKey(rawId, dateVal) : "-- (يحتاج تاريخ التفعيل)";
+
+            document.getElementById('results').style.display = 'block';
+
+            // Buffer the data so it can be thrown straight into the tracker's "new device" form.
+            const activationDate = dateVal || new Date().toISOString().split('T')[0];
+            const expiry = new Date(activationDate);
+            expiry.setFullYear(expiry.getFullYear() + 1);
+
+            lastGeneratedData = {
+                machineId: rawInput.toUpperCase(),
+                licenseKey: actKey,
+                trialDate: new Date().toISOString().split('T')[0],
+                activationDate: activationDate,
+                expiryDate: expiry.toISOString().split('T')[0]
+            };
+
+            safeCreateIcons();
+        }
+
+        function generateKeyFromRst() {
+            const raw = document.getElementById('rstDirectInput').value.trim().toUpperCase();
+            if (!raw || !/\d/.test(raw)) {
+                alert("من فضلك الصق كود الـ RST كامل زي ما هو ظاهر عند العميل");
+                return;
+            }
+            document.getElementById('rstDirectResultKey').innerText = getAdminResetKeyFromCode(raw);
+            document.getElementById('rstDirectResultRow').style.display = 'flex';
+        }
+
+        function copyVal(id) {
+            const text = document.getElementById(id).innerText;
+            if (!text || text.startsWith('--')) return;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("تم نسخ الكود: " + text);
+            });
+        }
+
+        // ================= Bridge: send generated data into the tracker's "new device" form =================
+        document.getElementById('sendToTrackerBtn').addEventListener('click', () => {
+            if (!lastGeneratedData) { alert('ولّد الأكواد الأول'); return; }
+
+            if (!appData.companies || appData.companies.length === 0) {
+                alert('لسه معندكش أي شركة في التراكر. هيتفتحلك فورم "شركة جديدة" الأول، بعد ما تحفظها هتقدر ترجع تضغط "إرسال البيانات إلى التراكر" تاني.');
+                showView('tracker');
+                openCompanyModal(null);
+                return;
+            }
+            if (!currentCompanyId) currentCompanyId = appData.companies[0].id;
+
+            showView('tracker');
+            openDeviceModal(null, 'edit');
+
+            // Pre-fill with the generated data
+            document.getElementById('editMachineId').value = lastGeneratedData.machineId;
+            document.getElementById('editLicenseKey').value = lastGeneratedData.licenseKey;
+            document.getElementById('editTrialDate').value = lastGeneratedData.trialDate;
+            document.getElementById('editActivationDate').value = lastGeneratedData.activationDate;
+            document.getElementById('editExpiryDate').value = lastGeneratedData.expiryDate;
+            document.getElementById('modalTitleMachineId').textContent = lastGeneratedData.machineId;
+        });
+
+        // ================= Camera scan (OCR) for Machine ID =================
+        let cameraStream = null;
+        let ocrLoadPromise = null;
+
+        function loadOcrEngine(){
+            if (window.Tesseract) return Promise.resolve();
+            if (ocrLoadPromise) return ocrLoadPromise;
+            ocrLoadPromise = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('تعذر تحميل مكتبة قراءة النص. تأكد من اتصال الإنترنت.'));
+                document.head.appendChild(s);
+            });
+            return ocrLoadPromise;
+        }
+
+        function setCameraStatus(msg){
+            const overlay = document.getElementById('cameraStatusOverlay');
+            if (!msg) { overlay.classList.add('hidden'); overlay.textContent = ''; }
+            else { overlay.classList.remove('hidden'); overlay.textContent = msg; }
+        }
+
+        async function populateCameraList(){
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cams = devices.filter(d => d.kind === 'videoinput');
+                const row = document.getElementById('cameraDeviceRow');
+                const select = document.getElementById('cameraDeviceSelect');
+                if (cams.length > 1) {
+                    select.innerHTML = cams.map((c, i) => `<option value="${c.deviceId}">${c.label || ('كاميرا ' + (i+1))}</option>`).join('');
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            } catch(e) { /* enumerateDevices may fail silently before permission; ignore */ }
+        }
+
+        async function startCameraStream(deviceId){
+            stopCameraStream();
+            const constraints = deviceId
+                ? { video: { deviceId: { exact: deviceId } } }
+                : { video: { facingMode: 'environment' } };
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch(e) {
+                // fall back to any available camera
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            }
+            const video = document.getElementById('cameraVideo');
+            video.srcObject = cameraStream;
+            await populateCameraList();
+        }
+
+        function stopCameraStream(){
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
+            }
+        }
+
+        async function openCameraScan(){
+            const modal = document.getElementById('cameraScanModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('ocrResultBox').classList.add('hidden');
+            setCameraStatus('جاري فتح الكاميرا...');
+            safeCreateIcons();
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('المتصفح ده مش بيدعم فتح الكاميرا. جرب من كروم أو من الموبايل.');
+                }
+                await startCameraStream(null);
+                setCameraStatus('');
+            } catch(e) {
+                setCameraStatus('');
+                alert('تعذر فتح الكاميرا: ' + e.message + '\nتأكد إنك سمحت للمتصفح بالوصول للكاميرا.');
+                closeCameraScan();
+            }
+        }
+
+        function closeCameraScan(){
+            stopCameraStream();
+            const modal = document.getElementById('cameraScanModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            setCameraStatus('');
+        }
+
+        async function captureAndRecognize(){
+            const video = document.getElementById('cameraVideo');
+            if (!video.videoWidth) { alert('الكاميرا لسه بتحمل، استنى لحظة وحاول تاني'); return; }
+
+            const canvas = document.getElementById('cameraCanvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            setCameraStatus('جاري تحميل محرك قراءة النص...');
+            document.getElementById('captureRecognizeBtn').disabled = true;
+            try {
+                await loadOcrEngine();
+                setCameraStatus('جاري قراءة النص من الصورة...');
+                const { data } = await Tesseract.recognize(canvas, 'eng', {
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
+                });
+                let text = (data.text || '').replace(/\s+/g, '').toUpperCase();
+                setCameraStatus('');
+                document.getElementById('ocrResultInput').value = text;
+                document.getElementById('ocrResultBox').classList.remove('hidden');
+                if (!text) alert('ملقيتش نص واضح في الصورة، جرب تقرب الكاميرا أكتر وتاكد إن الإضاءة كويسة.');
+            } catch(e) {
+                setCameraStatus('');
+                alert('حصل خطأ أثناء قراءة النص: ' + e.message);
+            } finally {
+                document.getElementById('captureRecognizeBtn').disabled = false;
+            }
+        }
+
+        document.getElementById('openCameraScanBtn').addEventListener('click', openCameraScan);
+        document.getElementById('closeCameraScanBtn').addEventListener('click', closeCameraScan);
+        document.getElementById('captureRecognizeBtn').addEventListener('click', captureAndRecognize);
+        document.getElementById('retryOcrBtn').addEventListener('click', () => {
+            document.getElementById('ocrResultBox').classList.add('hidden');
+        });
+        document.getElementById('useOcrResultBtn').addEventListener('click', () => {
+            const val = document.getElementById('ocrResultInput').value.trim();
+            if (!val) { alert('النص فاضي'); return; }
+            document.getElementById('machineId').value = val;
+            closeCameraScan();
+        });
+        document.getElementById('cameraDeviceSelect').addEventListener('change', (e) => {
+            startCameraStream(e.target.value);
+        });
+
+        const STORAGE_KEY = 'contractingTrackerData';
+        const THEME_KEY = 'encorenexTheme';
+        let appData = { companies: [] };
+        let currentCompanyId = null;
+        let currentEditingDeviceId = null;
+        let currentEditingCompanyId = null;
+        let currentRenewals = [];
+        let preEditDeviceSnapshot = null;
+
+        const PAYMENT_LABELS = { paid: 'مدفوع', pending: 'معلق', unknown: 'غير محدد' };
+        const PAYMENT_STAMP_CLASS = { paid: 'stamp-active', pending: 'stamp-warn', unknown: 'stamp-pending' };
+        const FIELD_LABELS = {
+            machineId: 'رقم الجهاز', licenseKey: 'مفتاح الترخيص', loginUser: 'المستخدم', cloudUser: 'الحساب السحابي',
+            appVersion: 'إصدار البرنامج', trialDate: 'تاريخ التجربة', activationDate: 'تاريخ التفعيل',
+            expiryDate: 'تاريخ الانتهاء', paymentStatus: 'حالة الدفع', lastContactDate: 'آخر تواصل',
+            nextFollowUpDate: 'المتابعة القادمة', faultHistory: 'الملاحظات', renewals: 'التجديدات'
+        };
+
+        const defaultSeed = {
+            companies: [
+                {
+                    id: 'comp_1',
+                    name: 'Encorenex Engineering Ltd.',
+                    allowedDevices: 5,
+                    phone: '',
+                    email: '',
+                    devices: [
+                        {
+                            id: 'dev_1',
+                            machineId: 'ENCX-F2E593C3-CD93-42',
+                            licenseKey: 'ACT-DEMO-0001',
+                            loginUser: 'Michael',
+                            cloudUser: 'mikoo_555@yahoo.com',
+                            appVersion: '2.6.0',
+                            trialDate: '2026-08-24',
+                            activationDate: '2026-08-24',
+                            renewals: [{ date: '2027-08-24', amount: '', status: 'paid' }],
+                            expiryDate: '2028-08-24',
+                            paymentStatus: 'paid',
+                            lastContactDate: '',
+                            nextFollowUpDate: '',
+                            faultHistory: 'مايكل البر',
+                            auditLog: [{ ts: new Date().toISOString(), text: 'تم إنشاء سجل الجهاز (بيانات أولية)' }]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // ---------- Theme ----------
+        function applyTheme(theme){
+            document.documentElement.classList.toggle('light-mode', theme === 'light');
+            const icon = document.getElementById('themeIcon');
+            if (icon) { icon.setAttribute('data-lucide', theme === 'light' ? 'sun' : 'moon'); safeCreateIcons(); }
+            localStorage.setItem(THEME_KEY, theme);
+        }
+        function initTheme(){
+            applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+        }
+        document.getElementById('themeToggleBtn').addEventListener('click', () => {
+            const isLight = document.documentElement.classList.contains('light-mode');
+            applyTheme(isLight ? 'dark' : 'light');
+        });
+
+        // ---------- Data load / migrate ----------
+        function migrateDevice(d){
+            if (!d.licenseKey) d.licenseKey = '';
+            if (!d.appVersion) d.appVersion = '';
+            if (!d.paymentStatus) d.paymentStatus = 'unknown';
+            if (!d.lastContactDate) d.lastContactDate = '';
+            if (!d.nextFollowUpDate) d.nextFollowUpDate = '';
+            if (!Array.isArray(d.auditLog)) d.auditLog = [];
+            if (!Array.isArray(d.renewals)) d.renewals = [];
+            d.renewals = d.renewals.map(r => typeof r === 'string' ? { date: r, amount: '', status: 'unknown' } : r);
+            return d;
+        }
+        function migrateCompany(c){
+            if (typeof c.phone !== 'string') c.phone = '';
+            if (typeof c.email !== 'string') c.email = '';
+            if (!Array.isArray(c.devices)) c.devices = [];
+            c.devices.forEach(migrateDevice);
+            return c;
+        }
+
+        function loadData() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                appData = stored ? JSON.parse(stored) : defaultSeed;
+                if (!appData.companies) appData = { companies: appData };
+            } catch (e) {
+                appData = defaultSeed;
+            }
+            appData.companies.forEach(migrateCompany);
+            if (appData.companies.length > 0 && !currentCompanyId) {
+                currentCompanyId = appData.companies[0].id;
+            }
+            initTheme();
+            renderAll();
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        function getCurrentCompany() {
+            return appData.companies.find(c => c.id === currentCompanyId) || null;
+        }
+
+        function renderAll() {
+            renderCompanyDropdown();
+            renderCompanyChips();
+            renderStats();
+            renderQuota();
+            renderTable();
+            safeCreateIcons();
+        }
+
+        function renderCompanyDropdown() {
+            const select = document.getElementById('companySelect');
+            select.innerHTML = '';
+            appData.companies.forEach(comp => {
+                const opt = document.createElement('option');
+                opt.value = comp.id;
+                opt.textContent = `${comp.name} (${comp.devices ? comp.devices.length : 0} أجهزة)`;
+                if (comp.id === currentCompanyId) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function renderCompanyChips(){
+            const comp = getCurrentCompany();
+            const box = document.getElementById('companyContactChips');
+            if (!comp || (!comp.phone && !comp.email)) { box.innerHTML = ''; return; }
+            let html = '';
+            if (comp.phone) html += `<span class="flex items-center gap-1.5 px-2 py-1 rounded" style="background:var(--bg-surface-2); border:1px solid var(--line)"><i data-lucide="phone" class="w-3 h-3"></i> ${comp.phone}</span>`;
+            if (comp.email) html += `<span class="flex items-center gap-1.5 px-2 py-1 rounded" style="background:var(--bg-surface-2); border:1px solid var(--line)"><i data-lucide="mail" class="w-3 h-3"></i> ${comp.email}</span>`;
+            box.innerHTML = html;
+            safeCreateIcons();
+        }
+
+        function renderStats() {
+            const now = new Date();
+            now.setHours(0,0,0,0);
+            let totalDev = 0, expSoon = 0, expired = 0;
+
+            appData.companies.forEach(comp => {
+                (comp.devices || []).forEach(d => {
+                    totalDev++;
+                    if (d.expiryDate) {
+                        const exp = new Date(d.expiryDate);
+                        exp.setHours(0,0,0,0);
+                        const diff = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        if (diff < 0) expired++;
+                        else if (diff <= 30) expSoon++;
+                    }
+                });
+            });
+
+            document.getElementById('statTotalCompanies').textContent = appData.companies.length;
+            document.getElementById('statTotalDevices').textContent = totalDev;
+            document.getElementById('statExpiringSoon').textContent = expSoon;
+            document.getElementById('statExpired').textContent = expired;
+        }
+
+        function renderQuota() {
+            const comp = getCurrentCompany();
+            if (!comp) return;
+            const active = comp.devices ? comp.devices.length : 0;
+            const allowed = comp.allowedDevices || 1;
+            const percent = Math.min(Math.round((active / allowed) * 100), 100);
+
+            document.getElementById('quotaAllowedText').textContent = allowed;
+            const activeBadge = document.getElementById('quotaActiveBadge');
+            activeBadge.textContent = active;
+            activeBadge.className = `stamp ${active > allowed ? 'stamp-expired' : 'stamp-active'}`;
+
+            document.getElementById('quotaPercentText').textContent = `${percent}%`;
+            const bar = document.getElementById('quotaProgressBar');
+            bar.style.width = `${percent}%`;
+            bar.style.background = active > allowed ? 'var(--ink-red)' : 'var(--ink-green)';
+        }
+
+        function getStatusHTML(dev) {
+            if (dev.expiryDate) {
+                const now = new Date(); now.setHours(0,0,0,0);
+                const exp = new Date(dev.expiryDate); exp.setHours(0,0,0,0);
+                const diff = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+                if (diff < 0) return `<span class="stamp stamp-expired">منتهي · ${Math.abs(diff)}ي</span>`;
+                if (diff <= 30) return `<span class="stamp stamp-warn">قريب الانتهاء · ${diff}ي</span>`;
+                return `<span class="stamp stamp-active">نشط · ${diff}ي</span>`;
+            }
+            if (dev.activationDate) return `<span class="stamp stamp-active">مفعل</span>`;
+            return `<span class="stamp stamp-pending">قيد الانتظار</span>`;
+        }
+
+        function paymentStampHTML(status){
+            const s = status || 'unknown';
+            return `<span class="stamp ${PAYMENT_STAMP_CLASS[s] || 'stamp-pending'}">${PAYMENT_LABELS[s] || 'غير محدد'}</span>`;
+        }
+
+        function renderTable() {
+            const comp = getCurrentCompany();
+            const tbody = document.getElementById('deviceTableBody');
+            if (!comp) {
+                tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center" style="color:var(--text-faint)">اختر شركة أولاً</td></tr>';
+                return;
+            }
+
+            document.getElementById('devicesCountBadge').textContent = `${comp.devices ? comp.devices.length : 0} مفعل`;
+            const q = document.getElementById('tableSearchInput').value.toLowerCase().trim();
+
+            const filtered = (comp.devices || []).filter(d => {
+                if (!q) return true;
+                return (
+                    (d.machineId && d.machineId.toLowerCase().includes(q)) ||
+                    (d.loginUser && d.loginUser.toLowerCase().includes(q)) ||
+                    (d.cloudUser && d.cloudUser.toLowerCase().includes(q)) ||
+                    (d.licenseKey && d.licenseKey.toLowerCase().includes(q)) ||
+                    (d.faultHistory && d.faultHistory.toLowerCase().includes(q))
+                );
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center" style="color:var(--text-faint)">لا توجد أجهزة مطابقة</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            filtered.forEach(dev => {
+                const tr = document.createElement('tr');
+                const renewCount = dev.renewals ? dev.renewals.length : 0;
+
+                tr.innerHTML = `
+                    <td class="font-mono font-bold">
+                        <button onclick="openDeviceModal('${dev.id}', 'view')" class="link-bracket px-1 py-1">${dev.machineId}</button>
+                    </td>
+                    <td class="font-medium">${dev.loginUser || '—'}</td>
+                    <td class="font-mono text-xs" style="color:var(--text-dim)">${dev.cloudUser || '—'}</td>
+                    <td>${getStatusHTML(dev)}</td>
+                    <td class="text-xs">
+                        <div class="font-mono font-bold">${dev.expiryDate || '—'}</div>
+                        ${renewCount > 0 ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded inline-block mt-1" style="color:var(--blue); background:rgba(95,168,222,0.1); border:1px solid rgba(95,168,222,0.3)">↻ ${renewCount} تجديد</span>` : ''}
+                    </td>
+                    <td>${paymentStampHTML(dev.paymentStatus)}</td>
+                    <td class="text-center">
+                        <button onclick="openDeviceModal('${dev.id}', 'view')" class="btn btn-outline px-3 py-1.5 rounded-md text-xs font-semibold">
+                            عرض التفاصيل
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            safeCreateIcons();
+        }
+
+        // ---------- Device Modal ----------
+        function openDeviceModal(deviceId, mode) {
+            const comp = getCurrentCompany();
+            if (!comp) return;
+
+            const modal = document.getElementById('deviceModal');
+            const viewContent = document.getElementById('modalViewModeContent');
+            const editForm = document.getElementById('modalEditForm');
+            const modeBadge = document.getElementById('modalModeBadge');
+            const switchBtn = document.getElementById('modalSwitchToEditBtn');
+
+            if (deviceId) {
+                const dev = comp.devices.find(d => d.id === deviceId);
+                if (!dev) return;
+                currentEditingDeviceId = dev.id;
+                currentRenewals = dev.renewals ? dev.renewals.map(r => ({...r})) : [];
+                preEditDeviceSnapshot = JSON.parse(JSON.stringify(dev));
+
+                document.getElementById('modalTitleMachineId').textContent = dev.machineId;
+                document.getElementById('modalCompanySubtitle').textContent = comp.name;
+
+                document.getElementById('viewMachineId').textContent = dev.machineId;
+                document.getElementById('viewStatusBadge').innerHTML = getStatusHTML(dev);
+                document.getElementById('viewLicenseKey').textContent = dev.licenseKey || '—';
+                document.getElementById('viewLoginUser').textContent = dev.loginUser || '—';
+                document.getElementById('viewCloudUser').textContent = dev.cloudUser || '—';
+                document.getElementById('viewAppVersion').textContent = dev.appVersion || '—';
+                document.getElementById('viewPaymentStatus').innerHTML = paymentStampHTML(dev.paymentStatus);
+                document.getElementById('viewTrialDate').textContent = dev.trialDate || '—';
+                document.getElementById('viewActivationDate').textContent = dev.activationDate || '—';
+                document.getElementById('viewExpiryDate').textContent = dev.expiryDate || '—';
+                document.getElementById('viewLastContact').textContent = dev.lastContactDate || '—';
+                document.getElementById('viewNextFollowUp').textContent = dev.nextFollowUpDate || '—';
+                document.getElementById('viewFaults').textContent = dev.faultHistory || 'لا توجد ملاحظات مسجلة';
+
+                const viewRenList = document.getElementById('viewRenewalsList');
+                if (currentRenewals.length === 0) {
+                    viewRenList.innerHTML = '<span style="color:var(--text-faint)" class="italic">لا توجد تجديدات مسجلة</span>';
+                } else {
+                    viewRenList.innerHTML = currentRenewals.map((r, i) => `
+                        <div class="flex items-center gap-2 p-1.5 rounded flex-wrap" style="background:var(--bg-base); border:1px solid var(--line-soft)">
+                            <span class="w-4 h-4 rounded-full font-bold text-[10px] flex items-center justify-center" style="background:rgba(95,168,222,0.15); color:var(--blue)">${i+1}</span>
+                            <span class="font-semibold" style="color:var(--text-dim)">تجديد ${i+1}:</span>
+                            <span class="font-mono font-bold">${r.date || '—'}</span>
+                            ${r.amount ? `<span class="font-mono text-[11px]" style="color:var(--text-dim)">${r.amount}</span>` : ''}
+                            ${paymentStampHTML(r.status)}
+                        </div>
+                    `).join('');
+                }
+
+                const auditBox = document.getElementById('viewAuditLog');
+                const logs = (dev.auditLog || []).slice().reverse();
+                if (logs.length === 0) {
+                    auditBox.innerHTML = '<div class="audit-row italic" style="color:var(--text-faint)">لا توجد حركات مسجلة بعد</div>';
+                } else {
+                    auditBox.innerHTML = logs.map(l => `
+                        <div class="audit-row flex items-center justify-between gap-2">
+                            <span style="color:var(--text-dim)">${l.text}</span>
+                            <span class="font-mono" style="color:var(--text-faint)">${formatTs(l.ts)}</span>
+                        </div>
+                    `).join('');
+                }
+
+                document.getElementById('editMachineId').value = dev.machineId;
+                document.getElementById('editLicenseKey').value = dev.licenseKey || '';
+                document.getElementById('editLoginUser').value = dev.loginUser || '';
+                document.getElementById('editCloudUser').value = dev.cloudUser || '';
+                document.getElementById('editAppVersion').value = dev.appVersion || '';
+                document.getElementById('editPaymentStatus').value = dev.paymentStatus || 'unknown';
+                document.getElementById('editTrialDate').value = dev.trialDate || '';
+                document.getElementById('editActivationDate').value = dev.activationDate || '';
+                document.getElementById('editExpiryDate').value = dev.expiryDate || '';
+                document.getElementById('editLastContact').value = dev.lastContactDate || '';
+                document.getElementById('editNextFollowUp').value = dev.nextFollowUpDate || '';
+                document.getElementById('editFaults').value = dev.faultHistory || '';
+
+                if (mode === 'edit') {
+                    viewContent.classList.add('hidden');
+                    editForm.classList.remove('hidden');
+                    switchBtn.classList.add('hidden');
+                    modeBadge.textContent = '[ وضع التعديل ]';
+                    modeBadge.className = 'stamp stamp-edit';
+                    renderEditRenewals();
+                } else {
+                    viewContent.classList.remove('hidden');
+                    editForm.classList.add('hidden');
+                    switchBtn.classList.remove('hidden');
+                    modeBadge.textContent = '[ عرض محمي ]';
+                    modeBadge.className = 'stamp stamp-locked';
+                }
+            } else {
+                currentEditingDeviceId = null;
+                currentRenewals = [];
+                preEditDeviceSnapshot = null;
+                document.getElementById('modalTitleMachineId').textContent = 'جهاز جديد';
+                document.getElementById('modalCompanySubtitle').textContent = comp.name;
+
+                document.getElementById('editMachineId').value = '';
+                document.getElementById('editLicenseKey').value = '';
+                document.getElementById('editLoginUser').value = '';
+                document.getElementById('editCloudUser').value = '';
+                document.getElementById('editAppVersion').value = '';
+                document.getElementById('editPaymentStatus').value = 'unknown';
+                document.getElementById('editTrialDate').value = '';
+                document.getElementById('editActivationDate').value = new Date().toISOString().split('T')[0];
+
+                const nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
+                document.getElementById('editExpiryDate').value = nextYear.toISOString().split('T')[0];
+                document.getElementById('editLastContact').value = '';
+                document.getElementById('editNextFollowUp').value = '';
+                document.getElementById('editFaults').value = '';
+
+                viewContent.classList.add('hidden');
+                editForm.classList.remove('hidden');
+                switchBtn.classList.add('hidden');
+                modeBadge.textContent = '[ جهاز جديد ]';
+                modeBadge.className = 'stamp stamp-new';
+                renderEditRenewals();
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            safeCreateIcons();
+        }
+
+        function formatTs(iso){
+            try {
+                const d = new Date(iso);
+                const pad = n => String(n).padStart(2,'0');
+                return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            } catch(e){ return iso || ''; }
+        }
+
+        function renderEditRenewals() {
+            const container = document.getElementById('editRenewalsContainer');
+            container.innerHTML = '';
+            if (currentRenewals.length === 0) {
+                container.innerHTML = '<span class="text-xs italic" style="color:var(--text-faint)">اضغط زر "+ إضافة تجديد" بالأعلى لإضافة تجديد جديد.</span>';
+                return;
+            }
+            currentRenewals.forEach((r, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 p-2 rounded-md flex-wrap';
+                row.style.background = 'var(--bg-base)';
+                row.style.border = '1px solid var(--line-soft)';
+                row.innerHTML = `
+                    <span class="text-xs font-bold whitespace-nowrap" style="color:var(--text-dim)">تجديد ${idx+1}:</span>
+                    <input type="date" value="${r.date || ''}" onchange="currentRenewals[${idx}].date = this.value" class="field px-2 py-1 rounded text-xs" style="flex:1; min-width:120px">
+                    <input type="text" value="${r.amount || ''}" placeholder="المبلغ" onchange="currentRenewals[${idx}].amount = this.value" class="field px-2 py-1 rounded text-xs font-mono" style="width:90px">
+                    <select onchange="currentRenewals[${idx}].status = this.value" class="field px-2 py-1 rounded text-xs">
+                        <option value="paid" ${r.status==='paid'?'selected':''}>مدفوع</option>
+                        <option value="pending" ${r.status==='pending'?'selected':''}>معلق</option>
+                        <option value="unknown" ${(!r.status || r.status==='unknown')?'selected':''}>غير محدد</option>
+                    </select>
+                    <button type="button" onclick="currentRenewals.splice(${idx}, 1); renderEditRenewals();" class="link-bracket" style="color:var(--ink-red-text)">[ حذف ]</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        document.getElementById('btnAddRenewalItem').addEventListener('click', () => {
+            currentRenewals.push({ date: new Date().toISOString().split('T')[0], amount: '', status: 'unknown' });
+            renderEditRenewals();
+        });
+
+        document.getElementById('modalSwitchToEditBtn').addEventListener('click', () => {
+            openDeviceModal(currentEditingDeviceId, 'edit');
+        });
+
+        document.getElementById('cancelEditBtn').addEventListener('click', () => {
+            if (currentEditingDeviceId) openDeviceModal(currentEditingDeviceId, 'view');
+            else document.getElementById('deviceModal').classList.add('hidden');
+        });
+
+        document.getElementById('closeDeviceModalBtn').addEventListener('click', () => {
+            document.getElementById('deviceModal').classList.add('hidden');
+            document.getElementById('deviceModal').classList.remove('flex');
+        });
+        document.getElementById('viewCloseBtn').addEventListener('click', () => {
+            document.getElementById('deviceModal').classList.add('hidden');
+            document.getElementById('deviceModal').classList.remove('flex');
+        });
+
+        function buildAuditDiffText(before, after){
+            const changed = [];
+            Object.keys(FIELD_LABELS).forEach(key => {
+                const a = JSON.stringify(before[key] ?? '');
+                const b = JSON.stringify(after[key] ?? '');
+                if (a !== b) changed.push(FIELD_LABELS[key]);
+            });
+            if (changed.length === 0) return null;
+            return `تم تعديل: ${changed.join('، ')}`;
+        }
+
+        // Form Submit
+        document.getElementById('modalEditForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const comp = getCurrentCompany();
+            if (!comp) return;
+
+            const mId = document.getElementById('editMachineId').value.trim().toUpperCase();
+            if (!mId) return alert("معرف الجهاز مطلوب!");
+
+            const formValues = {
+                machineId: mId,
+                licenseKey: document.getElementById('editLicenseKey').value.trim().toUpperCase(),
+                loginUser: document.getElementById('editLoginUser').value.trim(),
+                cloudUser: document.getElementById('editCloudUser').value.trim(),
+                appVersion: document.getElementById('editAppVersion').value.trim(),
+                paymentStatus: document.getElementById('editPaymentStatus').value,
+                trialDate: document.getElementById('editTrialDate').value,
+                activationDate: document.getElementById('editActivationDate').value,
+                renewals: currentRenewals.filter(r => r.date),
+                expiryDate: document.getElementById('editExpiryDate').value,
+                lastContactDate: document.getElementById('editLastContact').value,
+                nextFollowUpDate: document.getElementById('editNextFollowUp').value,
+                faultHistory: document.getElementById('editFaults').value.trim()
+            };
+
+            if (currentEditingDeviceId) {
+                const dev = comp.devices.find(d => d.id === currentEditingDeviceId);
+                if (dev) {
+                    const before = preEditDeviceSnapshot || JSON.parse(JSON.stringify(dev));
+                    Object.assign(dev, formValues);
+                    if (!Array.isArray(dev.auditLog)) dev.auditLog = [];
+                    const diffText = buildAuditDiffText(before, dev);
+                    if (diffText) dev.auditLog.push({ ts: new Date().toISOString(), text: diffText });
+                }
+            } else {
+                comp.devices.push({
+                    id: 'dev_' + Date.now(),
+                    ...formValues,
+                    auditLog: [{ ts: new Date().toISOString(), text: 'تم إنشاء سجل الجهاز' }]
+                });
+            }
+
+            saveData();
+            renderAll();
+            document.getElementById('deviceModal').classList.add('hidden');
+            document.getElementById('deviceModal').classList.remove('flex');
+        });
+
+        document.getElementById('viewDeleteBtn').addEventListener('click', () => {
+            const comp = getCurrentCompany();
+            if (!comp || !currentEditingDeviceId) return;
+            if (!confirm("هل أنت متأكد من حذف هذا الجهاز؟")) return;
+            comp.devices = comp.devices.filter(d => d.id !== currentEditingDeviceId);
+            saveData();
+            renderAll();
+            document.getElementById('deviceModal').classList.add('hidden');
+            document.getElementById('deviceModal').classList.remove('flex');
+        });
+
+        document.getElementById('newDeviceBtn').addEventListener('click', () => openDeviceModal(null, 'edit'));
+        document.getElementById('companySelect').addEventListener('change', (e) => {
+            currentCompanyId = e.target.value;
+            renderAll();
+        });
+        document.getElementById('tableSearchInput').addEventListener('input', renderTable);
+
+        // ---------- Company Modal ----------
+        function openCompanyModal(companyId){
+            currentEditingCompanyId = companyId || null;
+            const modal = document.getElementById('companyModal');
+            const title = document.getElementById('companyModalTitle');
+            if (companyId) {
+                const comp = appData.companies.find(c => c.id === companyId);
+                if (!comp) return;
+                title.innerHTML = '<i data-lucide="edit-2" class="w-4 h-4" style="color:var(--brass)"></i> تعديل بيانات الشركة';
+                document.getElementById('companyFormName').value = comp.name;
+                document.getElementById('companyFormLimit').value = comp.allowedDevices;
+                document.getElementById('companyFormPhone').value = comp.phone || '';
+                document.getElementById('companyFormEmail').value = comp.email || '';
+            } else {
+                title.innerHTML = '<i data-lucide="building-2" class="w-4 h-4" style="color:var(--brass)"></i> شركة جديدة';
+                document.getElementById('companyFormName').value = '';
+                document.getElementById('companyFormLimit').value = 5;
+                document.getElementById('companyFormPhone').value = '';
+                document.getElementById('companyFormEmail').value = '';
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            safeCreateIcons();
+        }
+        function closeCompanyModal(){
+            const modal = document.getElementById('companyModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.getElementById('newCompanyBtn').addEventListener('click', () => openCompanyModal(null));
+        document.getElementById('editCompanyBtn').addEventListener('click', () => {
+            const comp = getCurrentCompany();
+            if (!comp) return alert('اختر شركة أولاً');
+            openCompanyModal(comp.id);
+        });
+        document.getElementById('closeCompanyModalBtn').addEventListener('click', closeCompanyModal);
+        document.getElementById('cancelCompanyFormBtn').addEventListener('click', closeCompanyModal);
+
+        document.getElementById('companyForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('companyFormName').value.trim();
+            if (!name) return alert('اسم الشركة مطلوب');
+            const limit = parseInt(document.getElementById('companyFormLimit').value, 10);
+            if (isNaN(limit) || limit < 1) return alert('أدخل حداً أقصى صحيحاً للأجهزة');
+            const phone = document.getElementById('companyFormPhone').value.trim();
+            const email = document.getElementById('companyFormEmail').value.trim();
+
+            if (currentEditingCompanyId) {
+                const comp = appData.companies.find(c => c.id === currentEditingCompanyId);
+                if (comp) { comp.name = name; comp.allowedDevices = limit; comp.phone = phone; comp.email = email; }
+            } else {
+                const newComp = { id: 'comp_' + Date.now(), name, allowedDevices: limit, phone, email, devices: [] };
+                appData.companies.push(newComp);
+                currentCompanyId = newComp.id;
+            }
+            saveData();
+            renderAll();
+            closeCompanyModal();
+        });
+
+        document.getElementById('deleteCompanyBtn').addEventListener('click', () => {
+            const comp = getCurrentCompany();
+            if (!comp) return;
+            if (!confirm(`هل أنت متأكد من حذف شركة "${comp.name}"؟`)) return;
+            appData.companies = appData.companies.filter(c => c.id !== comp.id);
+            currentCompanyId = appData.companies.length > 0 ? appData.companies[0].id : null;
+            saveData();
+            renderAll();
+        });
+
+        document.getElementById('editQuotaBtn').addEventListener('click', () => {
+            const comp = getCurrentCompany();
+            if (!comp) return;
+            const val = prompt(`الحد الأقصى للأجهزة (${comp.name}):`, comp.allowedDevices);
+            if (val === null) return;
+            const p = parseInt(val, 10);
+            if (isNaN(p) || p < 1) return alert("أدخل رقماً صحيحاً");
+            comp.allowedDevices = p;
+            saveData();
+            renderAll();
+        });
+
+        // Backup & CSV
+        document.getElementById('exportBackupBtn').addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `EasyTracker_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('importBackupBtn').addEventListener('click', () => document.getElementById('importFileInput').click());
+        document.getElementById('importFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const p = JSON.parse(evt.target.result);
+                    appData = p.companies ? p : { companies: p };
+                    appData.companies.forEach(migrateCompany);
+                    saveData();
+                    if (appData.companies.length > 0) currentCompanyId = appData.companies[0].id;
+                    renderAll();
+                    alert("تم استيراد النسخة الاحتياطية بنجاح!");
+                } catch(err) { alert("الملف غير صالح!"); }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+
+        document.getElementById('exportCsvBtn').addEventListener('click', () => {
+            const comp = getCurrentCompany();
+            if (!comp || !comp.devices || comp.devices.length === 0) return alert("لا توجد أجهزة للتصدير");
+            const headers = ["Company", "Phone", "Email", "Machine ID", "License Key", "Login User", "Cloud User", "App Version", "Trial Date", "Activation Date", "Renewals", "Expiry Date", "Payment Status", "Last Contact", "Next Follow-up", "Fault History"];
+            const rows = comp.devices.map(d => [
+                `"${comp.name.replace(/"/g, '""')}"`,
+                `"${(comp.phone || '').replace(/"/g, '""')}"`,
+                `"${(comp.email || '').replace(/"/g, '""')}"`,
+                `"${d.machineId.replace(/"/g, '""')}"`,
+                `"${(d.licenseKey || '').replace(/"/g, '""')}"`,
+                `"${(d.loginUser || '').replace(/"/g, '""')}"`,
+                `"${(d.cloudUser || '').replace(/"/g, '""')}"`,
+                `"${(d.appVersion || '').replace(/"/g, '""')}"`,
+                `"${d.trialDate || ''}"`,
+                `"${d.activationDate || ''}"`,
+                `"${(d.renewals && d.renewals.length > 0 ? d.renewals.map(r => `${r.date}${r.amount ? '('+r.amount+')' : ''}[${PAYMENT_LABELS[r.status]||''}]`).join(' ; ') : '')}"`,
+                `"${d.expiryDate || ''}"`,
+                `"${PAYMENT_LABELS[d.paymentStatus] || ''}"`,
+                `"${d.lastContactDate || ''}"`,
+                `"${d.nextFollowUpDate || ''}"`,
+                `"${(d.faultHistory || '').replace(/"/g, '""').replace(/\n/g, ' | ')}"`
+            ]);
+            const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Devices_${comp.name.replace(/\s+/g, '_')}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        loadData();
+        window.addEventListener('load', safeCreateIcons);
+        setTimeout(safeCreateIcons, 800);
+
+        // ================= PWA: service worker + install prompt =================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW registration failed:', e));
+            });
+        }
+
+        let deferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            const btn = document.getElementById('installAppBtn');
+            btn.classList.remove('hidden');
+        });
+        document.getElementById('installAppBtn').addEventListener('click', async () => {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            document.getElementById('installAppBtn').classList.add('hidden');
+        });
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('installAppBtn').classList.add('hidden');
+        });
+    </script>
+</body>
+</html>
