@@ -1,7 +1,7 @@
 // EasyTracker service worker
 // Bump this version whenever index.html (or any cached asset) changes,
 // so users automatically get the update instead of a stale cached copy.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const APP_CACHE = `easytracker-app-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `easytracker-runtime-${CACHE_VERSION}`;
 
