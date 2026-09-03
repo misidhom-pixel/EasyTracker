@@ -297,6 +297,9 @@
                 <button class="gen-btn" onclick="generateKeys()">توليد الأكواد</button>
 
                 <div class="results" id="results">
+                    <div class="result-row" style="border-right:4px solid #d9822b; background:rgba(217,130,43,0.08);">
+                        <span class="label" style="font-weight:700;">⚠️ الأكواد دي صالحة لحد آخر النهاردة بالتوقيت العالمي (UTC) بس</span>
+                    </div>
                     <div class="result-row act">
                         <span class="label">تفعيل كامل (365 يوم)</span>
                         <span><span class="value" id="actKey">--</span><button class="copy-btn" onclick="copyVal('actKey')">نسخ</button></span>
@@ -454,8 +457,18 @@
             </div>
         </header>
 
-        <!-- Company Record -->
+        <!-- Companies Overview (smart link: click a company to jump straight to its devices) -->
         <section class="panel rounded-lg p-5 mb-6">
+            <h2 class="font-display text-lg font-bold flex items-center gap-2.5 mb-1">
+                <i data-lucide="building-2" class="w-4 h-4" style="color:var(--brass)"></i>
+                <span>الشركات</span>
+            </h2>
+            <p class="text-xs mb-4" style="color:var(--text-faint)">اضغط على أي شركة لعرض جدول أجهزتها بالكامل تحت</p>
+            <div id="companiesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+        </section>
+
+        <!-- Company Record -->
+        <section class="panel rounded-lg p-5 mb-6" id="companyRecordSection">
             <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b" style="border-color:var(--line)">
                 <div class="w-full md:w-auto flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
                     <label for="companySelect" class="text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap min-w-[100px]" style="color:var(--text-dim)">
@@ -474,7 +487,7 @@
             <div id="companyContactChips" class="flex flex-wrap items-center gap-2 pt-3 text-xs font-mono" style="color:var(--text-dim)"></div>
 
             <!-- Quota Gauge -->
-            <div class="pt-4">
+            <div class="pt-4" id="quotaBlock">
                 <div class="flex items-center justify-between text-xs font-semibold mb-1.5 flex-wrap gap-2">
                     <div class="flex items-center gap-2 font-mono" style="color:var(--text-dim)">
                         <span>الحد المسموح:</span>
@@ -511,10 +524,11 @@
             </div>
 
             <div class="overflow-x-auto rounded-md border" style="border-color:var(--line)">
-                <table class="schedule w-full text-right border-collapse min-w-[760px]">
+                <table class="schedule w-full text-right border-collapse min-w-[880px]">
                     <thead>
                         <tr>
                             <th>Machine ID</th>
+                            <th>الشركة</th>
                             <th>المستخدم</th>
                             <th>الحساب السحابي</th>
                             <th>الحالة</th>
@@ -791,6 +805,14 @@
             const cleanHex = id.replace(/[^0-9a-fA-F]/g, '').slice(0, 16) || "0";
             return BigInt("0x" + cleanHex);
         }
+        // تاريخ اليوم (UTC) كرقم، لازم يكون مطابق تمامًا لنفس الدالة في home.html
+        function getTodayDateBigInt() {
+            const now = new Date();
+            const y = now.getUTCFullYear();
+            const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const d = String(now.getUTCDate()).padStart(2, '0');
+            return BigInt(`${y}${m}${d}`);
+        }
         function getCorrectKey(id) {
             let secret = (hashToBigInt(id) * 7n + 12345n).toString();
             return "ACT-" + secret.slice(-6);
@@ -804,8 +826,27 @@
             let secret = (hashToBigInt(id) * 7n + dateNum + 54321n).toString();
             return "REN-" + secret.slice(-6);
         }
+        // --- أكواد الإدخال اليومية (دي اللي المفروض تتبعت للعميل، مش الأكواد الدائمة فوق) ---
+        function getActivationEntryKey(id) {
+            let secret = (hashToBigInt(id) * 7n + getTodayDateBigInt() * 41n + 12345n).toString();
+            return "ACT-" + secret.slice(-6);
+        }
+        function getTrialEntryKey(id) {
+            let secret = (hashToBigInt(id) * 3n + getTodayDateBigInt() * 41n + 99999n).toString();
+            return "TRY-" + secret.slice(-6);
+        }
+        function getRenewalEntryKey(id, activationDateStr) {
+            let dateNum = BigInt(activationDateStr.replace(/\D+/g, '') || "0");
+            let secret = (hashToBigInt(id) * 7n + dateNum + getTodayDateBigInt() * 41n + 54321n).toString();
+            return "REN-" + secret.slice(-6);
+        }
         function getResetChallengeCode(id) {
-            let secret = (hashToBigInt(id) * 9n + 88888n).toString();
+            const now = new Date();
+            const timeBucket = now.getUTCFullYear().toString()
+                + String(now.getUTCMonth() + 1).padStart(2, '0')
+                + String(now.getUTCDate()).padStart(2, '0')
+                + String(now.getUTCHours()).padStart(2, '0');
+            let secret = (hashToBigInt(id) * 9n + BigInt(timeBucket) + 88888n).toString();
             return "RST-" + secret.slice(-6);
         }
         function getAdminResetKeyFromCode(rstOrMachineCode) {
@@ -824,16 +865,16 @@
                 return;
             }
 
-            const actKey = getCorrectKey(rawId);
+            const actKey = getActivationEntryKey(rawId);
             document.getElementById('actKey').innerText = actKey;
-            document.getElementById('tryKey').innerText = getTrialKey(rawId);
+            document.getElementById('tryKey').innerText = getTrialEntryKey(rawId);
 
             const rstCode = getResetChallengeCode(rawId);
             document.getElementById('rstCode').innerText = rstCode;
             document.getElementById('resetKey').innerText = getAdminResetKeyFromCode(rstCode);
 
             const dateVal = document.getElementById('actDate').value;
-            document.getElementById('renKey').innerText = dateVal ? getRenewalKey(rawId, dateVal) : "-- (يحتاج تاريخ التفعيل)";
+            document.getElementById('renKey').innerText = dateVal ? getRenewalEntryKey(rawId, dateVal) : "-- (يحتاج تاريخ التفعيل)";
 
             document.getElementById('results').style.display = 'block';
 
@@ -844,7 +885,7 @@
 
             lastGeneratedData = {
                 machineId: rawInput.toUpperCase(),
-                licenseKey: actKey,
+                licenseKey: getCorrectKey(rawId),
                 trialDate: new Date().toISOString().split('T')[0],
                 activationDate: activationDate,
                 expiryDate: expiry.toISOString().split('T')[0]
@@ -1066,6 +1107,7 @@
         let appData = { companies: [] };
         let currentCompanyId = null;
         let currentEditingDeviceId = null;
+        let currentDeviceCompanyId = null; // company that owns the device currently open in the modal (may differ from currentCompanyId when browsing the "all companies" table)
         let currentEditingCompanyId = null;
         let currentRenewals = [];
         let preEditDeviceSnapshot = null;
@@ -1172,6 +1214,7 @@
         function renderAll() {
             renderCompanyDropdown();
             renderCompanyChips();
+            renderCompaniesGrid();
             renderStats();
             renderQuota();
             renderTable();
@@ -1181,6 +1224,14 @@
         function renderCompanyDropdown() {
             const select = document.getElementById('companySelect');
             select.innerHTML = '';
+
+            const allOpt = document.createElement('option');
+            allOpt.value = '__ALL__';
+            const totalDevices = appData.companies.reduce((sum, c) => sum + (c.devices ? c.devices.length : 0), 0);
+            allOpt.textContent = `🔎 كل الشركات (عرض شامل) — ${totalDevices} جهاز`;
+            if (currentCompanyId === '__ALL__') allOpt.selected = true;
+            select.appendChild(allOpt);
+
             appData.companies.forEach(comp => {
                 const opt = document.createElement('option');
                 opt.value = comp.id;
@@ -1188,6 +1239,49 @@
                 if (comp.id === currentCompanyId) opt.selected = true;
                 select.appendChild(opt);
             });
+        }
+
+        function filterToCompany(companyId){
+            currentCompanyId = companyId;
+            renderAll();
+            const section = document.getElementById('companyRecordSection');
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderCompaniesGrid(){
+            const grid = document.getElementById('companiesGrid');
+            if (!appData.companies || appData.companies.length === 0) {
+                grid.innerHTML = `<div class="text-sm py-4 text-center col-span-full" style="color:var(--text-faint)">مفيش شركات لسه — ابدأ بإضافة شركة جديدة</div>`;
+                return;
+            }
+            grid.innerHTML = appData.companies.map(comp => {
+                const count = comp.devices ? comp.devices.length : 0;
+                const allowed = comp.allowedDevices || 1;
+                const isActive = comp.id === currentCompanyId;
+                const overQuota = count > allowed;
+                return `
+                    <button type="button" onclick="filterToCompany('${comp.id}')"
+                        class="text-right p-3.5 rounded-lg transition-colors"
+                        style="border:1.5px solid ${isActive ? 'var(--brass)' : 'var(--line)'}; background:${isActive ? 'var(--bg-surface-2)' : 'var(--bg-surface-solid)'};">
+                        <div class="flex items-center justify-between gap-2 mb-1.5">
+                            <span class="font-bold text-sm truncate">${comp.name}</span>
+                            <i data-lucide="chevron-left" class="w-4 h-4 flex-shrink-0" style="color:var(--text-faint)"></i>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs font-mono" style="color:var(--text-dim)">
+                            <span class="stamp ${overQuota ? 'stamp-expired' : 'stamp-active'}">${count} / ${allowed} جهاز</span>
+                        </div>
+                    </button>
+                `;
+            }).join('') + `
+                <button type="button" onclick="filterToCompany('__ALL__')"
+                    class="text-right p-3.5 rounded-lg transition-colors flex flex-col justify-center"
+                    style="border:1.5px dashed ${currentCompanyId === '__ALL__' ? 'var(--brass)' : 'var(--line)'}; background:${currentCompanyId === '__ALL__' ? 'var(--bg-surface-2)' : 'transparent'};">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-bold text-sm" style="color:var(--text-dim)">🔎 عرض كل الشركات</span>
+                        <i data-lucide="chevron-left" class="w-4 h-4 flex-shrink-0" style="color:var(--text-faint)"></i>
+                    </div>
+                </button>
+            `;
         }
 
         function renderCompanyChips(){
@@ -1227,7 +1321,9 @@
 
         function renderQuota() {
             const comp = getCurrentCompany();
-            if (!comp) return;
+            const block = document.getElementById('quotaBlock');
+            if (!comp) { block.classList.add('hidden'); return; }
+            block.classList.remove('hidden');
             const active = comp.devices ? comp.devices.length : 0;
             const allowed = comp.allowedDevices || 1;
             const percent = Math.min(Math.round((active / allowed) * 100), 100);
@@ -1263,40 +1359,57 @@
         }
 
         function renderTable() {
-            const comp = getCurrentCompany();
             const tbody = document.getElementById('deviceTableBody');
-            if (!comp) {
-                tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center" style="color:var(--text-faint)">اختر شركة أولاً</td></tr>';
-                return;
+            const q = document.getElementById('tableSearchInput').value.toLowerCase().trim();
+            const showingAll = currentCompanyId === '__ALL__';
+
+            let combined = [];
+            if (showingAll) {
+                appData.companies.forEach(c => {
+                    (c.devices || []).forEach(d => combined.push({ dev: d, company: c }));
+                });
+            } else {
+                const comp = getCurrentCompany();
+                if (!comp) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="py-8 text-center" style="color:var(--text-faint)">اختر شركة أولاً</td></tr>';
+                    document.getElementById('devicesCountBadge').textContent = '0 مفعل';
+                    return;
+                }
+                (comp.devices || []).forEach(d => combined.push({ dev: d, company: comp }));
             }
 
-            document.getElementById('devicesCountBadge').textContent = `${comp.devices ? comp.devices.length : 0} مفعل`;
-            const q = document.getElementById('tableSearchInput').value.toLowerCase().trim();
+            document.getElementById('devicesCountBadge').textContent = showingAll
+                ? `${combined.length} مفعل (كل الشركات)`
+                : `${combined.length} مفعل`;
 
-            const filtered = (comp.devices || []).filter(d => {
+            const filtered = combined.filter(({ dev, company }) => {
                 if (!q) return true;
                 return (
-                    (d.machineId && d.machineId.toLowerCase().includes(q)) ||
-                    (d.loginUser && d.loginUser.toLowerCase().includes(q)) ||
-                    (d.cloudUser && d.cloudUser.toLowerCase().includes(q)) ||
-                    (d.licenseKey && d.licenseKey.toLowerCase().includes(q)) ||
-                    (d.faultHistory && d.faultHistory.toLowerCase().includes(q))
+                    (dev.machineId && dev.machineId.toLowerCase().includes(q)) ||
+                    (dev.loginUser && dev.loginUser.toLowerCase().includes(q)) ||
+                    (dev.cloudUser && dev.cloudUser.toLowerCase().includes(q)) ||
+                    (dev.licenseKey && dev.licenseKey.toLowerCase().includes(q)) ||
+                    (dev.faultHistory && dev.faultHistory.toLowerCase().includes(q)) ||
+                    (company.name && company.name.toLowerCase().includes(q))
                 );
             });
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center" style="color:var(--text-faint)">لا توجد أجهزة مطابقة</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="py-8 text-center" style="color:var(--text-faint)">لا توجد أجهزة مطابقة</td></tr>';
                 return;
             }
 
             tbody.innerHTML = '';
-            filtered.forEach(dev => {
+            filtered.forEach(({ dev, company }) => {
                 const tr = document.createElement('tr');
                 const renewCount = dev.renewals ? dev.renewals.length : 0;
 
                 tr.innerHTML = `
                     <td class="font-mono font-bold">
-                        <button onclick="openDeviceModal('${dev.id}', 'view')" class="link-bracket px-1 py-1">${dev.machineId}</button>
+                        <button onclick="openDeviceModal('${dev.id}', 'view', '${company.id}')" class="link-bracket px-1 py-1">${dev.machineId}</button>
+                    </td>
+                    <td class="text-xs">
+                        <button onclick="filterToCompany('${company.id}')" class="font-semibold px-2 py-1 rounded" style="background:var(--bg-surface-2); border:1px solid var(--line); color:var(--text-dim);">${company.name}</button>
                     </td>
                     <td class="font-medium">${dev.loginUser || '—'}</td>
                     <td class="font-mono text-xs" style="color:var(--text-dim)">${dev.cloudUser || '—'}</td>
@@ -1307,7 +1420,7 @@
                     </td>
                     <td>${paymentStampHTML(dev.paymentStatus)}</td>
                     <td class="text-center">
-                        <button onclick="openDeviceModal('${dev.id}', 'view')" class="btn btn-outline px-3 py-1.5 rounded-md text-xs font-semibold">
+                        <button onclick="openDeviceModal('${dev.id}', 'view', '${company.id}')" class="btn btn-outline px-3 py-1.5 rounded-md text-xs font-semibold">
                             عرض التفاصيل
                         </button>
                     </td>
@@ -1318,9 +1431,13 @@
         }
 
         // ---------- Device Modal ----------
-        function openDeviceModal(deviceId, mode) {
-            const comp = getCurrentCompany();
-            if (!comp) return;
+        function openDeviceModal(deviceId, mode, companyIdOverride) {
+            const comp = companyIdOverride ? appData.companies.find(c => c.id === companyIdOverride) : getCurrentCompany();
+            if (!comp) {
+                if (!deviceId) alert('اختر شركة معينة أولاً قبل إضافة جهاز جديد (مش وضع "كل الشركات")');
+                return;
+            }
+            currentDeviceCompanyId = comp.id;
 
             const modal = document.getElementById('deviceModal');
             const viewContent = document.getElementById('modalViewModeContent');
@@ -1483,11 +1600,11 @@
         });
 
         document.getElementById('modalSwitchToEditBtn').addEventListener('click', () => {
-            openDeviceModal(currentEditingDeviceId, 'edit');
+            openDeviceModal(currentEditingDeviceId, 'edit', currentDeviceCompanyId);
         });
 
         document.getElementById('cancelEditBtn').addEventListener('click', () => {
-            if (currentEditingDeviceId) openDeviceModal(currentEditingDeviceId, 'view');
+            if (currentEditingDeviceId) openDeviceModal(currentEditingDeviceId, 'view', currentDeviceCompanyId);
             else document.getElementById('deviceModal').classList.add('hidden');
         });
 
@@ -1514,7 +1631,7 @@
         // Form Submit
         document.getElementById('modalEditForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const comp = getCurrentCompany();
+            const comp = currentDeviceCompanyId ? appData.companies.find(c => c.id === currentDeviceCompanyId) : getCurrentCompany();
             if (!comp) return;
 
             const mId = document.getElementById('editMachineId').value.trim().toUpperCase();
@@ -1560,7 +1677,7 @@
         });
 
         document.getElementById('viewDeleteBtn').addEventListener('click', () => {
-            const comp = getCurrentCompany();
+            const comp = currentDeviceCompanyId ? appData.companies.find(c => c.id === currentDeviceCompanyId) : getCurrentCompany();
             if (!comp || !currentEditingDeviceId) return;
             if (!confirm("هل أنت متأكد من حذف هذا الجهاز؟")) return;
             comp.devices = comp.devices.filter(d => d.id !== currentEditingDeviceId);
