@@ -312,6 +312,10 @@
                         <span class="label">تجديد (بعد انتهاء الـ 365 يوم)</span>
                         <span><span class="value" id="renKey">--</span><button class="copy-btn" onclick="copyVal('renKey')">نسخ</button></span>
                     </div>
+                    <div class="result-row" style="border-right:4px solid #6f42c1; background:rgba(111,66,193,0.08);">
+                        <span class="label" style="font-weight:700;">تفعيل مدى الحياة (بدون أي تجديد)</span>
+                        <span><span class="value" id="lifKey">--</span><button class="copy-btn" onclick="copyVal('lifKey')">نسخ</button></span>
+                    </div>
                     <div class="result-row" style="border-right:4px solid #999;">
                         <span class="label">كود التحدي الوسيط (RST) - للمراجعة فقط</span>
                         <span><span class="value" id="rstCode" style="color:var(--text-faint);">--</span></span>
@@ -840,6 +844,14 @@
             let secret = (hashToBigInt(id) * 7n + dateNum + getTodayDateBigInt() * 41n + 54321n).toString();
             return "REN-" + secret.slice(-6);
         }
+        function getLifetimeKey(id) {
+            let secret = (hashToBigInt(id) * 11n + 24680n).toString();
+            return "LIF-" + secret.slice(-6);
+        }
+        function getLifetimeEntryKey(id) {
+            let secret = (hashToBigInt(id) * 11n + getTodayDateBigInt() * 41n + 24680n).toString();
+            return "LIF-" + secret.slice(-6);
+        }
         function getResetChallengeCode(id) {
             const now = new Date();
             const timeBucket = now.getUTCFullYear().toString()
@@ -868,6 +880,7 @@
             const actKey = getActivationEntryKey(rawId);
             document.getElementById('actKey').innerText = actKey;
             document.getElementById('tryKey').innerText = getTrialEntryKey(rawId);
+            document.getElementById('lifKey').innerText = getLifetimeEntryKey(rawId);
 
             const rstCode = getResetChallengeCode(rawId);
             document.getElementById('rstCode').innerText = rstCode;
