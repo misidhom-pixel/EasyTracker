@@ -17,6 +17,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -285,8 +286,8 @@
                 <label>رقم الجهاز (Machine ID) الظاهر عند العميل</label>
                 <div style="display:flex; gap:8px; align-items:stretch; margin-bottom:14px;">
                     <input type="text" id="machineId" placeholder="e.g. 3F9A1B7C2E4D5F60 or SRS-3F9A1B7C2E4D5F60" style="margin-bottom:0; flex:1;">
-                    <button type="button" id="openCameraScanBtn" title="مسح رقم الجهاز بالكاميرا" style="flex-shrink:0; width:48px; border-radius:10px; border:1.5px solid var(--line); background:var(--bg-surface-2); color:var(--brass); cursor:pointer; display:flex; align-items:center; justify-content:center;">
-                        <i data-lucide="camera" class="w-5 h-5"></i>
+                    <button type="button" id="openCameraScanBtn" title="مسح كود QR الخاص برقم الجهاز" style="flex-shrink:0; width:48px; border-radius:10px; border:1.5px solid var(--line); background:var(--bg-surface-2); color:var(--brass); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <i data-lucide="qr-code" class="w-5 h-5"></i>
                     </button>
                 </div>
 
@@ -349,11 +350,11 @@
             </div>
         </div>
 
-        <!-- ================= Camera Scan Modal (Machine ID OCR) ================= -->
+        <!-- ================= Camera Scan Modal (Machine ID via QR Code) ================= -->
         <div id="cameraScanModal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 backdrop">
             <div class="panel rounded-lg shadow-2xl w-full max-w-lg overflow-hidden" dir="rtl">
                 <div class="p-4 sm:p-5 flex items-center justify-between border-b" style="background:var(--bg-surface-2); border-color:var(--line)">
-                    <h2 class="text-base font-bold flex items-center gap-2"><i data-lucide="camera" class="w-4 h-4" style="color:var(--brass)"></i> مسح رقم الجهاز بالكاميرا</h2>
+                    <h2 class="text-base font-bold flex items-center gap-2"><i data-lucide="qr-code" class="w-4 h-4" style="color:var(--brass)"></i> مسح كود QR الخاص برقم الجهاز</h2>
                     <button id="closeCameraScanBtn" class="p-1.5 rounded-md" style="color:var(--text-faint)"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
 
@@ -362,9 +363,9 @@
                         <video id="cameraVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover; display:block;"></video>
                         <canvas id="cameraCanvas" class="hidden"></canvas>
 
-                        <!-- Crop guide: only the pixels inside this box are sent to OCR -->
-                        <div id="cameraCropGuide" style="position:absolute; left:8%; width:84%; top:44%; height:16%; box-sizing:border-box; border:2px solid var(--brass); border-radius:6px; box-shadow:0 0 0 2000px rgba(0,0,0,0.55); pointer-events:none;">
-                            <span style="position:absolute; bottom:100%; right:0; margin-bottom:6px; background:var(--brass); color:#1A1206; font-size:10px; font-weight:800; padding:2px 8px; border-radius:5px; white-space:nowrap;">حط الـ Machine ID جوه الإطار بس</span>
+                        <!-- Guide frame: helps the user aim the QR code, scanning itself covers the whole frame -->
+                        <div id="cameraCropGuide" style="position:absolute; left:20%; width:60%; top:15%; height:60%; box-sizing:border-box; border:2px solid var(--brass); border-radius:10px; box-shadow:0 0 0 2000px rgba(0,0,0,0.55); pointer-events:none;">
+                            <span style="position:absolute; bottom:100%; right:0; margin-bottom:6px; background:var(--brass); color:#1A1206; font-size:10px; font-weight:800; padding:2px 8px; border-radius:5px; white-space:nowrap;">حط الكيو ار كود جوه الإطار</span>
                         </div>
 
                         <div id="cameraStatusOverlay" class="hidden" style="position:absolute; inset:0; background:rgba(6,12,20,0.72); display:flex; align-items:center; justify-content:center; color:var(--text); font-size:13px; font-weight:600; text-align:center; padding:16px; z-index:5;"></div>
@@ -375,14 +376,14 @@
                         <select id="cameraDeviceSelect" class="field w-full px-3 py-2 rounded-md text-xs"></select>
                     </div>
 
-                    <p class="text-xs" style="color:var(--text-faint)">حرّك الكاميرا لحد ما سطر الـ Machine ID بس يبقى جوه الإطار الدهبي، وبعدين اضغط "التقاط وقراءة" — اللي هيتقرا هو اللي جوه الإطار بس.</p>
+                    <p class="text-xs" style="color:var(--text-faint)">وجّه الكاميرا نحو الكيو ار كود الظاهر عند العميل — هيتم التعرف عليه تلقائيًا بمجرد ما يبقى واضح جوه الإطار، من غير ما تحتاج تضغط أي زرار.</p>
 
-                    <button type="button" id="captureRecognizeBtn" class="btn btn-brass w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-md">
-                        <i data-lucide="scan-line" class="w-4 h-4"></i><span>التقاط وقراءة النص</span>
+                    <button type="button" id="captureRecognizeBtn" class="btn btn-outline w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-md">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i><span>مش شغالة؟ اضغط لإعادة المسح</span>
                     </button>
 
                     <div id="ocrResultBox" class="hidden space-y-2 pt-2 border-t" style="border-color:var(--line)">
-                        <label class="block text-xs font-semibold" style="color:var(--text-dim)">النص المقروء (راجعه وعدّله لو محتاج قبل ما تستخدمه)</label>
+                        <label class="block text-xs font-semibold" style="color:var(--text-dim)">النص المقروء من الكيو ار كود (راجعه وعدّله لو محتاج قبل ما تستخدمه)</label>
                         <input type="text" id="ocrResultInput" class="field w-full px-3 py-2 rounded-md font-mono text-sm" dir="ltr" style="text-align:center;">
                         <div class="flex items-center gap-2 pt-1">
                             <button type="button" id="useOcrResultBtn" class="btn btn-brass flex-1 px-3 py-2 text-xs font-bold rounded-md">استخدام هذا النص</button>
@@ -949,21 +950,23 @@
             document.getElementById('modalTitleMachineId').textContent = lastGeneratedData.machineId;
         });
 
-        // ================= Camera scan (OCR) for Machine ID =================
+        // ================= Camera scan (QR Code) for Machine ID =================
         let cameraStream = null;
-        let ocrLoadPromise = null;
+        let qrLoadPromise = null;
+        let qrScanActive = false;
+        let qrScanRAF = null;
 
-        function loadOcrEngine(){
-            if (window.Tesseract) return Promise.resolve();
-            if (ocrLoadPromise) return ocrLoadPromise;
-            ocrLoadPromise = new Promise((resolve, reject) => {
+        function loadQrEngine(){
+            if (window.jsQR) return Promise.resolve();
+            if (qrLoadPromise) return qrLoadPromise;
+            qrLoadPromise = new Promise((resolve, reject) => {
                 const s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+                s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
                 s.onload = () => resolve();
-                s.onerror = () => reject(new Error('تعذر تحميل مكتبة قراءة النص. تأكد من اتصال الإنترنت.'));
+                s.onerror = () => reject(new Error('تعذر تحميل مكتبة قراءة الكيو ار كود. تأكد من اتصال الإنترنت.'));
                 document.head.appendChild(s);
             });
-            return ocrLoadPromise;
+            return qrLoadPromise;
         }
 
         function setCameraStatus(msg){
@@ -1022,7 +1025,10 @@
                     throw new Error('المتصفح ده مش بيدعم فتح الكاميرا. جرب من كروم أو من الموبايل.');
                 }
                 await startCameraStream(null);
+                setCameraStatus('جاري تحميل محرك قراءة الكيو ار كود...');
+                await loadQrEngine();
                 setCameraStatus('');
+                startQrScanLoop();
             } catch(e) {
                 setCameraStatus('');
                 alert('تعذر فتح الكاميرا: ' + e.message + '\nتأكد إنك سمحت للمتصفح بالوصول للكاميرا.');
@@ -1031,6 +1037,7 @@
         }
 
         function closeCameraScan(){
+            stopQrScanLoop();
             stopCameraStream();
             const modal = document.getElementById('cameraScanModal');
             modal.classList.add('hidden');
@@ -1038,72 +1045,65 @@
             setCameraStatus('');
         }
 
-        async function captureAndRecognize(){
+        // Continuously grabs frames from the live video and looks for a QR code in each one,
+        // instead of doing a single manual capture + OCR pass like before.
+        function startQrScanLoop(){
+            qrScanActive = true;
             const video = document.getElementById('cameraVideo');
-            if (!video.videoWidth) { alert('الكاميرا لسه بتحمل، استنى لحظة وحاول تاني'); return; }
-
-            // Map the visible crop-guide box (CSS %, drawn over a `object-fit:cover` video)
-            // to actual pixel coordinates inside the video's native resolution, so we only
-            // OCR the small region inside the gold frame — not the whole screen photo.
-            const wrapRect = document.getElementById('cameraPreviewWrap').getBoundingClientRect();
-            const guideRect = document.getElementById('cameraCropGuide').getBoundingClientRect();
-
-            const vw = video.videoWidth, vh = video.videoHeight;
-            const displayScale = Math.max(wrapRect.width / vw, wrapRect.height / vh); // "cover" scale
-            const scaledVideoW = vw * displayScale, scaledVideoH = vh * displayScale;
-            const offsetX = (scaledVideoW - wrapRect.width) / 2;
-            const offsetY = (scaledVideoH - wrapRect.height) / 2;
-
-            const boxLeftInWrap = guideRect.left - wrapRect.left;
-            const boxTopInWrap = guideRect.top - wrapRect.top;
-
-            let sx = (boxLeftInWrap + offsetX) / displayScale;
-            let sy = (boxTopInWrap + offsetY) / displayScale;
-            let sw = guideRect.width / displayScale;
-            let sh = guideRect.height / displayScale;
-
-            // Clamp to the video's actual bounds, just in case.
-            sx = Math.max(0, Math.min(sx, vw));
-            sy = Math.max(0, Math.min(sy, vh));
-            sw = Math.max(1, Math.min(sw, vw - sx));
-            sh = Math.max(1, Math.min(sh, vh - sy));
-
-            // Upscale the small cropped strip so Tesseract has more pixels per character to work with.
-            const upscale = 3;
             const canvas = document.getElementById('cameraCanvas');
-            canvas.width = Math.round(sw * upscale);
-            canvas.height = Math.round(sh * upscale);
-            const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = true;
-            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-            setCameraStatus('جاري تحميل محرك قراءة النص...');
-            document.getElementById('captureRecognizeBtn').disabled = true;
-            try {
-                await loadOcrEngine();
-                setCameraStatus('جاري قراءة النص من الصورة...');
-                const { data } = await Tesseract.recognize(canvas, 'eng', {
-                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
-                    tessedit_pageseg_mode: '7' // treat the crop as a single line of text
-                });
-                let text = (data.text || '').replace(/\s+/g, '').toUpperCase();
-                setCameraStatus('');
-                document.getElementById('ocrResultInput').value = text;
-                document.getElementById('ocrResultBox').classList.remove('hidden');
-                if (!text) alert('ملقيتش نص واضح جوه الإطار، جرب تحط الرقم بالظبط جوه الإطار الدهبي وقرّب الكاميرا شوية.');
-            } catch(e) {
-                setCameraStatus('');
-                alert('حصل خطأ أثناء قراءة النص: ' + e.message);
-            } finally {
-                document.getElementById('captureRecognizeBtn').disabled = false;
+            function tick(){
+                if (!qrScanActive) return;
+                if (video.videoWidth && video.videoHeight) {
+                    // Downscale for speed — jsQR doesn't need full camera resolution to find a code.
+                    const maxDim = 640;
+                    const scale = Math.min(1, maxDim / Math.max(video.videoWidth, video.videoHeight));
+                    canvas.width = Math.round(video.videoWidth * scale);
+                    canvas.height = Math.round(video.videoHeight * scale);
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    try {
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+                        if (code && code.data) {
+                            handleQrDetected(code.data);
+                            return; // scan loop stops here; handleQrDetected decides what's next
+                        }
+                    } catch(e) { /* ignore transient frame read errors and keep scanning */ }
+                }
+                qrScanRAF = requestAnimationFrame(tick);
+            }
+            qrScanRAF = requestAnimationFrame(tick);
+        }
+
+        function stopQrScanLoop(){
+            qrScanActive = false;
+            if (qrScanRAF) { cancelAnimationFrame(qrScanRAF); qrScanRAF = null; }
+        }
+
+        function handleQrDetected(rawText){
+            stopQrScanLoop();
+            const text = String(rawText || '').trim().toUpperCase();
+            setCameraStatus('');
+            document.getElementById('ocrResultInput').value = text;
+            document.getElementById('ocrResultBox').classList.remove('hidden');
+            if (!text) {
+                alert('الكيو ار كود ده فاضي، جرب مسح كود تاني.');
+                startQrScanLoop();
             }
         }
 
         document.getElementById('openCameraScanBtn').addEventListener('click', openCameraScan);
         document.getElementById('closeCameraScanBtn').addEventListener('click', closeCameraScan);
-        document.getElementById('captureRecognizeBtn').addEventListener('click', captureAndRecognize);
+        document.getElementById('captureRecognizeBtn').addEventListener('click', () => {
+            // Manual fallback: hide any previous result and resume the live scan loop.
+            document.getElementById('ocrResultBox').classList.add('hidden');
+            stopQrScanLoop();
+            startQrScanLoop();
+        });
         document.getElementById('retryOcrBtn').addEventListener('click', () => {
             document.getElementById('ocrResultBox').classList.add('hidden');
+            startQrScanLoop();
         });
         document.getElementById('useOcrResultBtn').addEventListener('click', () => {
             const val = document.getElementById('ocrResultInput').value.trim();
